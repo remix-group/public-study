@@ -1,0 +1,14 @@
+{
+  "name": "dian-study-platform",
+  "private": true,
+  "description": "Plataforma de aprendizaje adaptativo para preparar la OPEC del concurso de méritos de la DIAN.",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @dian-study/api --filter @dian-study/web dev",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

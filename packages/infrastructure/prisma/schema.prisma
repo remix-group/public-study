@@ -1,0 +1,425 @@
+// Prisma schema for the DIAN Study Platform MVP
+//
+// Maps all domain entities defined in:
+//   - docs/domain/opec.md
+//   - docs/domain/legal-domain.md
+//   - docs/domain/learning-domain.md
+//   - docs/architecture/domain-model.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// OPEC subdomain
+// ─────────────────────────────────────────────
+
+model Opec {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  level       String   // e.g. "Técnico"
+  area        String   // e.g. "Administración de Cartera"
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  competencies Competency[]
+
+  @@map("opecs")
+}
+
+model Competency {
+  id          String   @id @default(cuid())
+  opecId      String
+  name        String
+  description String
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  opec           Opec           @relation(fields: [opecId], references: [id])
+  topics         Topic[]
+  studySessions  StudySession[]
+
+  @@map("competencies")
+}
+
+model Topic {
+  id           String   @id @default(cuid())
+  competencyId String
+  name         String
+  description  String
+  order        Int
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  competency         Competency         @relation(fields: [competencyId], references: [id])
+  learningObjectives LearningObjective[]
+
+  @@map("topics")
+}
+
+model LearningObjective {
+  id          String   @id @default(cuid())
+  topicId     String
+  name        String
+  description String
+  order       Int
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  topic           Topic            @relation(fields: [topicId], references: [id])
+  concepts        Concept[]
+  questions       Question[]
+  cases           Case[]
+  mistakes        Mistake[]
+  masteryStates   MasteryState[]
+  reviewSchedules ReviewSchedule[]
+
+  @@map("learning_objectives")
+}
+
+// ─────────────────────────────────────────────
+// Legal subdomain
+// ─────────────────────────────────────────────
+
+model LegalDocument {
+  id             String    @id @default(cuid())
+  title          String
+  source         String
+  effectiveFrom  DateTime
+  effectiveUntil DateTime?
+  status         String    @default("vigente") // vigente | derogado | modificado | suspendido
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  provisions      LegalProvision[]
+  referencesTo    LegalReference[] @relation("ReferenceToDocument")
+
+  @@map("legal_documents")
+}
+
+model LegalProvision {
+  id             String    @id @default(cuid())
+  documentId     String
+  number         String    // e.g. "Art. 837"
+  title          String
+  content        String
+  citation       String
+  effectiveFrom  DateTime
+  effectiveUntil DateTime?
+  status         String    @default("vigente")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  document          LegalDocument    @relation(fields: [documentId], references: [id])
+  evidences         Evidence[]
+  relationsAsSource LegalRelation[]  @relation("RelationSource")
+  relationsAsTarget LegalRelation[]  @relation("RelationTarget")
+  referencesFrom    LegalReference[] @relation("ReferenceFromProvision")
+  referencesTo      LegalReference[] @relation("ReferenceToProvision")
+
+  @@map("legal_provisions")
+}
+
+model LegalRelation {
+  id                  String   @id @default(cuid())
+  sourceProvisionId   String
+  targetProvisionId   String
+  type                String   // MODIFIES | ADDS | REPEALS | REPLACES | REFERENCES | REGULATES
+  description         String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  sourceProvision LegalProvision @relation("RelationSource", fields: [sourceProvisionId], references: [id])
+  targetProvision LegalProvision @relation("RelationTarget", fields: [targetProvisionId], references: [id])
+
+  @@map("legal_relations")
+}
+
+model LegalReference {
+  id              String   @id @default(cuid())
+  fromProvisionId String
+  toProvisionId   String?
+  toDocumentId    String?
+  citation        String
+  context         String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  fromProvision LegalProvision @relation("ReferenceFromProvision", fields: [fromProvisionId], references: [id])
+  toProvision   LegalProvision? @relation("ReferenceToProvision", fields: [toProvisionId], references: [id])
+  toDocument    LegalDocument?  @relation("ReferenceToDocument", fields: [toDocumentId], references: [id])
+
+  @@map("legal_references")
+}
+
+model Evidence {
+  id           String   @id @default(cuid())
+  provisionId  String
+  content      String
+  citation     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  provision LegalProvision @relation(fields: [provisionId], references: [id])
+  concepts  ConceptEvidence[]
+  questions QuestionEvidence[]
+  cases     CaseEvidence[]
+
+  @@map("evidences")
+}
+
+// ─────────────────────────────────────────────
+// Learning subdomain
+// ─────────────────────────────────────────────
+
+model Student {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  passwordHash String
+  role      String   @default("student") // student | editor
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questionAttempts QuestionAttempt[]
+  caseAttempts     CaseAttempt[]
+  masteryStates    MasteryState[]
+  reviewSchedules  ReviewSchedule[]
+  studySessions    StudySession[]
+  authSessions     AuthSession[]
+
+  @@map("students")
+}
+
+model AuthSession {
+  id        String   @id @default(cuid())
+  studentId String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model Concept {
+  id          String   @id @default(cuid())
+  objectiveId String
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  objective LearningObjective @relation(fields: [objectiveId], references: [id])
+  evidences ConceptEvidence[]
+
+  @@map("concepts")
+}
+
+/// Junction table: Concept ↔ Evidence (M2M)
+model ConceptEvidence {
+  conceptId  String
+  evidenceId String
+  createdAt  DateTime @default(now())
+
+  concept  Concept  @relation(fields: [conceptId], references: [id])
+  evidence Evidence @relation(fields: [evidenceId], references: [id])
+
+  @@id([conceptId, evidenceId])
+  @@map("concept_evidences")
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  objectiveId   String
+  type          String   // multiple_choice | true_false | open_ended
+  difficulty    Float    // 0.0 – 1.0
+  stem          String
+  options       Json?    // Array of { key, text }
+  correctAnswer String
+  explanation   String
+  editorialStatus String @default("draft") // draft | published | archived
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  objective LearningObjective @relation(fields: [objectiveId], references: [id])
+  evidences QuestionEvidence[]
+  attempts  QuestionAttempt[]
+
+  @@map("questions")
+  @@index([editorialStatus])
+}
+
+/// Junction table: Question ↔ Evidence (M2M)
+model QuestionEvidence {
+  questionId String
+  evidenceId String
+  createdAt  DateTime @default(now())
+
+  question Question @relation(fields: [questionId], references: [id])
+  evidence Evidence @relation(fields: [evidenceId], references: [id])
+
+  @@id([questionId, evidenceId])
+  @@map("question_evidences")
+}
+
+model Case {
+  id               String   @id @default(cuid())
+  objectiveId      String
+  difficulty       Float    // 0.0 – 1.0
+  scenario         String
+  expectedAnalysis String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  objective LearningObjective @relation(fields: [objectiveId], references: [id])
+  evidences CaseEvidence[]
+  attempts  CaseAttempt[]
+
+  @@map("cases")
+}
+
+/// Junction table: Case ↔ Evidence (M2M)
+model CaseEvidence {
+  caseId     String
+  evidenceId String
+  createdAt  DateTime @default(now())
+
+  case     Case     @relation(fields: [caseId], references: [id])
+  evidence Evidence @relation(fields: [evidenceId], references: [id])
+
+  @@id([caseId, evidenceId])
+  @@map("case_evidences")
+}
+
+model QuestionAttempt {
+  id          String   @id @default(cuid())
+  studentId   String
+  questionId  String
+  sessionId   String
+  answer      String
+  result      String   // correct | incorrect | partial
+  timeSpentMs Int
+  confidence  Float?   // 0.0 – 1.0
+  difficulty  Float    // immutable evaluation snapshot
+  evidenceSnapshots Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student  Student      @relation(fields: [studentId], references: [id])
+  question Question     @relation(fields: [questionId], references: [id])
+  session  StudySession @relation(fields: [sessionId], references: [id])
+  mistakes Mistake[]    @relation("QuestionAttemptMistakes")
+
+  @@map("question_attempts")
+}
+
+model CaseAttempt {
+  id          String   @id @default(cuid())
+  studentId   String
+  caseId      String
+  sessionId   String
+  response    String
+  result      String   // correct | incorrect | partial
+  timeSpentMs Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student  Student      @relation(fields: [studentId], references: [id])
+  case     Case         @relation(fields: [caseId], references: [id])
+  session  StudySession @relation(fields: [sessionId], references: [id])
+  mistakes Mistake[]    @relation("CaseAttemptMistakes")
+
+  @@map("case_attempts")
+}
+
+model Mistake {
+  id                  String   @id @default(cuid())
+  questionAttemptId   String?
+  caseAttemptId       String?
+  objectiveId         String
+  type                String
+  description         String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  questionAttempt QuestionAttempt?  @relation("QuestionAttemptMistakes", fields: [questionAttemptId], references: [id])
+  caseAttempt     CaseAttempt?      @relation("CaseAttemptMistakes", fields: [caseAttemptId], references: [id])
+  objective       LearningObjective @relation(fields: [objectiveId], references: [id])
+
+  @@map("mistakes")
+}
+
+model MasteryState {
+  id              String    @id @default(cuid())
+  studentId       String
+  objectiveId     String
+  mastery         Float     // 0.0 – 1.0
+  confidence      Float     // 0.0 – 1.0
+  retention       Float     // 0.0 – 1.0
+  totalAttempts   Int       @default(0)
+  correctAttempts Int       @default(0)
+  consecutiveCorrect Int    @default(0)
+  lastAttemptAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  student   Student           @relation(fields: [studentId], references: [id])
+  objective LearningObjective @relation(fields: [objectiveId], references: [id])
+
+  @@unique([studentId, objectiveId])
+  @@map("mastery_states")
+}
+
+model ReviewSchedule {
+  id          String    @id @default(cuid())
+  studentId   String
+  objectiveId String
+  scheduledAt DateTime
+  interval    Int       // days until next review
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  student   Student           @relation(fields: [studentId], references: [id])
+  objective LearningObjective @relation(fields: [objectiveId], references: [id])
+
+  @@unique([studentId, objectiveId])
+  @@map("review_schedules")
+}
+
+model StudySession {
+  id              String    @id @default(cuid())
+  studentId       String
+  competencyId    String
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+  totalQuestions  Int       @default(0)
+  correctAnswers  Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  student          Student           @relation(fields: [studentId], references: [id])
+  competency       Competency        @relation(fields: [competencyId], references: [id])
+  questionAttempts QuestionAttempt[]
+  caseAttempts     CaseAttempt[]
+
+  @@map("study_sessions")
+}
