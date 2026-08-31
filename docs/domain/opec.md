@@ -1,26 +1,23 @@
 # OPEC Domain
 
 ## Contexto de la Vacante
-**Cargo:** Analista I
+**Cargo:** Analista I — OPEC 236828
 **Nivel:** Técnico
 **Área/Proceso:** Cumplimiento de Obligaciones Tributarias, Administración de Cartera / Recaudo-Devoluciones.
 
-## Estructura para el MVP
-El enfoque inicial para probar la cadena de valor completa será exclusivamente sobre una competencia funcional:
+## Estructura objetivo
+La ficha CT-CR-2013 define siete competencias funcionales específicas:
 
 ```text
-OPEC
+OPEC 236828
 └── Analista I
-    └── Competencias funcionales
-        └── Cobro Coactivo
+    ├── Cobro Coactivo
+    ├── Cobro Persuasivo
+    ├── Medidas Cautelares
+    ├── Procesos Concursales
+    ├── Entidades Autorizadas para Recaudar
+    ├── Control Extensivo de Obligaciones
+    └── Devoluciones y Compensaciones
 ```
 
-## Competencias futuras (Fuera del MVP)
-Estas competencias funcionales están previstas para iteraciones futuras, soportadas por la misma estructura:
-
-- Control Extensivo
-- Devoluciones y Compensaciones
-- Cobro Persuasivo
-- Medidas Cautelares
-- Procesos Concursales
-- Entidades Autorizadas para Recaudar
+El vertical inicial de Cobro Coactivo continúa operativo, pero ya no representa el alcance final del producto. La especificación completa está en `specs/opec/opec-236828.md`.

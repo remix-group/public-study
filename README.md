@@ -31,7 +31,16 @@ Contraseña: EstudioDIAN2026!
 
 También se pueden crear cuentas desde la interfaz. El progreso se vincula a la sesión autenticada y los endpoints de estudio no aceptan identificadores de estudiante enviados por el cliente.
 
-La cuenta demo tiene rol `editor` y muestra acceso al panel editorial en la barra superior. Desde allí se pueden crear preguntas en borrador, asociarlas con objetivos y evidencia jurídica existente, y publicarlas después de revisión.
+La cuenta demo tiene rol `editor` y muestra dos accesos en la barra superior:
+
+- `Fuentes`: documentos, versiones, unidades jurídicas, evidencias y relaciones normativas.
+- Dentro de `Fuentes`, la carga de un PDF oficial automatiza el hash, la extracción y la creación de artículos pendientes de revisión.
+
+La pantalla principal es el espacio del estudiante: presenta el plan recomendado del día, dominio, repasos pendientes y práctica enfocada por objetivo.
+Cada objetivo abre una lectura guiada con propósito, conceptos esenciales y texto normativo oficial antes de iniciar sus preguntas.
+
+El panel `Fuentes` puede preparar un prompt para ChatGPT Plus e importar su JSON. Esta ruta no requiere API key y aplica las mismas validaciones automáticas que el proveedor directo.
+- `Preguntas`: borradores, asociación con evidencia y publicación después de revisión.
 
 ## API del vertical
 

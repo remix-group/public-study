@@ -3,7 +3,7 @@ import {
   LearningObjectivePrismaRepository,
   QuestionPrismaRepository,
 } from "@dian-study/infrastructure";
-import { getStudentDashboard } from "../application/study-session-progress.js";
+import { getObjectiveStudyGuide, getStudentDashboard } from "../application/study-session-progress.js";
 import { AttemptNotFoundError } from "../application/submit-question-attempt.js";
 import { requireAuth } from "../auth/middleware.js";
 
@@ -53,6 +53,15 @@ learningRouter.get("/objectives/:objectiveId/questions", async (req, res) => {
 learningRouter.get("/dashboard", async (_req, res, next) => {
   try {
     res.json(await getStudentDashboard(res.locals.studentId));
+  } catch (error) {
+    if (error instanceof AttemptNotFoundError) return res.status(404).json({ error: error.message });
+    next(error);
+  }
+});
+
+learningRouter.get("/objectives/:objectiveId/guide", async (req, res, next) => {
+  try {
+    res.json(await getObjectiveStudyGuide(req.params.objectiveId));
   } catch (error) {
     if (error instanceof AttemptNotFoundError) return res.status(404).json({ error: error.message });
     next(error);

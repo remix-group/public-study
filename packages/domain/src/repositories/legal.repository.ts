@@ -5,11 +5,18 @@
 import type { EntityId } from "../shared/types.js";
 import type {
   LegalDocument,
+  LegalVersion,
   LegalProvision,
   LegalRelation,
   LegalReference,
   Evidence,
 } from "../legal/entities.js";
+
+export interface LegalVersionRepository {
+  findById(id: EntityId): Promise<LegalVersion | null>;
+  findByDocumentId(documentId: EntityId): Promise<LegalVersion[]>;
+  create(data: Omit<LegalVersion, "id" | "createdAt" | "updatedAt">): Promise<LegalVersion>;
+}
 
 export interface LegalDocumentRepository {
   findById(id: EntityId): Promise<LegalDocument | null>;

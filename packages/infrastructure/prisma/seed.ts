@@ -35,13 +35,19 @@ async function main() {
     create: { id: "objective-alcance-art-823", topicId: topic.id, name: "Identificar el alcance del cobro coactivo", description: "Reconocer las deudas fiscales sujetas al procedimiento", order: 1 },
   });
   const document = await prisma.legalDocument.upsert({
-    where: { id: "legal-estatuto-tributario" }, update: { source: SOURCE_URL },
-    create: { id: "legal-estatuto-tributario", title: "Estatuto Tributario", source: SOURCE_URL, effectiveFrom: new Date("1989-03-30T00:00:00Z") },
+    where: { id: "legal-estatuto-tributario" }, update: { source: SOURCE_URL, officialUrl: SOURCE_URL, pipelineStatus: "PUBLISHED" },
+    create: { id: "legal-estatuto-tributario", title: "Estatuto Tributario", source: SOURCE_URL, authority: "DIAN", documentType: "statute", officialUrl: SOURCE_URL, pipelineStatus: "PUBLISHED", effectiveFrom: new Date("1989-03-30T00:00:00Z") },
+  });
+  const version = await prisma.legalVersion.upsert({
+    where: { documentId_label: { documentId: document.id, label: "Compilación consultada 2026-08-30" } },
+    update: { isCurrent: true },
+    create: { documentId: document.id, label: "Compilación consultada 2026-08-30", effectiveFrom: new Date("1989-03-30T00:00:00Z"), status: "vigente", isCurrent: true },
   });
   const provision = await prisma.legalProvision.upsert({
-    where: { id: "provision-et-823" }, update: {},
+    where: { id: "provision-et-823" }, update: { versionId: version.id, anchor: "articulo-823", validationStatus: "approved", editorialStatus: "published" },
     create: {
       id: "provision-et-823", documentId: document.id, number: "Artículo 823",
+      versionId: version.id, unitType: "article", anchor: "articulo-823", order: 823, validationStatus: "approved", editorialStatus: "published",
       title: "Procedimiento administrativo coactivo",
       content: "Para el cobro coactivo de las deudas fiscales por concepto de impuestos, anticipos, retenciones, intereses y sanciones, de competencia de la DIAN, deberá seguirse el procedimiento administrativo coactivo.",
       citation: "Estatuto Tributario, artículo 823", effectiveFrom: new Date("1989-03-30T00:00:00Z"),
@@ -111,8 +117,8 @@ async function main() {
       create: { ...item.objective, topicId: topic.id },
     });
     const itemProvision = await prisma.legalProvision.upsert({
-      where: { id: item.provision.id }, update: {},
-      create: { ...item.provision, documentId: document.id, citation: `Estatuto Tributario, ${item.provision.number.toLowerCase()}`, effectiveFrom: new Date("1989-03-30T00:00:00Z") },
+      where: { id: item.provision.id }, update: { versionId: version.id, anchor: item.provision.number.toLowerCase().replaceAll(" ", "-"), validationStatus: "approved", editorialStatus: "published" },
+      create: { ...item.provision, documentId: document.id, versionId: version.id, unitType: "article", anchor: item.provision.number.toLowerCase().replaceAll(" ", "-"), order: Number(item.provision.number.replace(/\D/g, "")), validationStatus: "approved", editorialStatus: "published", citation: `Estatuto Tributario, ${item.provision.number.toLowerCase()}`, effectiveFrom: new Date("1989-03-30T00:00:00Z") },
     });
     const itemEvidence = await prisma.evidence.upsert({
       where: { id: `evidence-${item.provision.id}` }, update: {},

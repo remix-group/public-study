@@ -1,0 +1,2 @@
+Token usage: total=383,999 input=303,225 (+ 24,102,144 cached) output=80,774 (reasoning 9,348)
+To continue this session, run codex resume, then select Analiza el proyecto (01a05440-5d22-7af0-9de4-7e1932fe4f52)

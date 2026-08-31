@@ -46,7 +46,8 @@ sessionRouter.post("/attempt", async (req, res, next) => {
 
 sessionRouter.get("/:sessionId/next", async (req, res, next) => {
   try {
-    res.json(await getNextQuestion(req.params.sessionId, res.locals.studentId));
+    const objectiveId = z.string().min(1).optional().parse(req.query.objectiveId);
+    res.json(await getNextQuestion(req.params.sessionId, res.locals.studentId, objectiveId));
   } catch (error) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
     if (error instanceof AttemptNotFoundError) return res.status(404).json({ error: error.message });

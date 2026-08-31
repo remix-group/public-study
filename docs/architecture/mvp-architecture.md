@@ -36,3 +36,11 @@ Para el primer MVP se utilizará una arquitectura basada en un **monolito modula
 ## Persistencia
 - **PostgreSQL:** Actuará como base de datos central (esquemas relacionales para dominio/progreso, almacenamiento JSONB para documentos en bruto, y soporte para vectores mediante `pgvector`).
 - **Knowledge Graph:** Por ahora, las relaciones jurídicas (`MODIFIES`, `REPEALS`) se modelarán relacionalmente. La introducción de una base de datos de grafos nativa (ej. Neo4j) queda como una decisión diferida (ADR futuro) dependiendo de la necesidad real durante la fase de ingestión jurídica.
+
+## Knowledge Core del MVP
+
+La ingesta PDF usa un adaptador local determinista: conserva el original, calcula SHA-256, extrae texto con `pdftotext` y genera artículos pendientes de revisión (ADR-006).
+
+La generación de preguntas utiliza `AiProvider`; OpenAI es el primer adaptador y entrega salidas estructuradas que se validan nuevamente antes de publicarse (ADR-007).
+
+PostgreSQL representa el registro documental, versiones, unidades jurídicas y relaciones explícitas. `LegalProvision` implementa temporalmente el concepto `LegalUnit` del documento de arquitectura. El pipeline ya conserva estados deterministas, aunque extracción de archivos, parsing, object storage e indexación todavía serán ejecutados manualmente hasta incorporar workers.

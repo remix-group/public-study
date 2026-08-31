@@ -4,6 +4,7 @@ import { sessionRouter } from "./routes/session.js";
 import { learningRouter } from "./routes/learning.js";
 import { authRouter } from "./routes/auth.js";
 import { editorialRouter } from "./routes/editorial.js";
+import { knowledgeRouter } from "./routes/knowledge.js";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -17,6 +18,7 @@ app.use("/api/sessions", sessionRouter);
 app.use("/api/learning", learningRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/editorial", editorialRouter);
+app.use("/api/knowledge", knowledgeRouter);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

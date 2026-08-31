@@ -4,8 +4,10 @@ import { difficultyLabel, formatReviewDate, masteryPercent } from "./format";
 import type { AttemptResponse, AuthStudent, Dashboard, LearningObjective, Question, SessionStartResponse, SessionSummary } from "./types";
 import { AuthScreen } from "./AuthScreen";
 import { EditorPanel } from "./EditorPanel";
+import { KnowledgePanel } from "./KnowledgePanel";
+import { GuidedStudy } from "./GuidedStudy";
 
-type Screen = "checking" | "auth" | "welcome" | "loading" | "question" | "feedback" | "summary" | "editor" | "empty";
+type Screen = "checking" | "auth" | "welcome" | "guide" | "loading" | "question" | "feedback" | "summary" | "editor" | "knowledge" | "empty";
 
 function Brand() {
   return (
@@ -41,6 +43,13 @@ export function App() {
   const [questionNumber, setQuestionNumber] = useState(1);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [focusObjectiveId, setFocusObjectiveId] = useState<string | undefined>();
+  const [guideObjectiveId, setGuideObjectiveId] = useState<string | undefined>();
+
+  function openGuide(objectiveId?: string) {
+    if (!objectiveId) { begin(); return; }
+    setGuideObjectiveId(objectiveId); setScreen("guide");
+  }
 
   useEffect(() => {
     if (screen === "question") setStartedAt(Date.now());
@@ -60,12 +69,13 @@ export function App() {
     await logout().catch(() => undefined); setStudent(null); setDashboard(null); setScreen("auth");
   }
 
-  async function begin() {
+  async function begin(objectiveId?: string) {
     setScreen("loading"); setError("");
     try {
+      setFocusObjectiveId(objectiveId);
       const data = await startSession();
       setSessionData(data);
-      const next = await getNextQuestion(data.session.id);
+      const next = await getNextQuestion(data.session.id, objectiveId);
       if (!next) { setScreen("empty"); return; }
       setObjective(next.objective);
       setQuestion(next.question);
@@ -81,7 +91,7 @@ export function App() {
     if (!sessionData) return;
     setScreen("loading"); setError("");
     try {
-      const next = await getNextQuestion(sessionData.session.id);
+      const next = await getNextQuestion(sessionData.session.id, focusObjectiveId);
       if (next) {
         setQuestion(next.question); setObjective(next.objective); setSelected(""); setConfidence(0.5);
         setFeedback(null); setQuestionNumber((value) => value + 1); setScreen("question");
@@ -116,14 +126,14 @@ export function App() {
 
   function restart() {
     setSessionData(null); setObjective(null); setQuestion(null); setSelected("");
-    setFeedback(null); setSummary(null); setConfidence(0.5); setScreen("welcome");
+    setFeedback(null); setSummary(null); setConfidence(0.5); setFocusObjectiveId(undefined); setScreen("welcome");
   }
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <Brand />
-        {student ? <div className="account-actions">{student.role === "editor" && <button className="editor-link" onClick={() => setScreen("editor")}>Panel editorial</button>}<button className="account-button" onClick={signOut}><span>{student.name.slice(0, 1).toUpperCase()}</span><span>{student.name}<small>Cerrar sesión</small></span></button></div> : <div className="topbar-meta">
+        {student ? <div className="account-actions">{student.role === "editor" && <><button className="editor-link" onClick={() => setScreen("knowledge")}>Fuentes</button><button className="editor-link" onClick={() => setScreen("editor")}>Preguntas</button></>}<button className="account-button" onClick={signOut}><span>{student.name.slice(0, 1).toUpperCase()}</span><span>{student.name}<small>Cerrar sesión</small></span></button></div> : <div className="topbar-meta">
           <span className="status-dot" /> Contenido con respaldo normativo
         </div>}
       </header>
@@ -131,38 +141,20 @@ export function App() {
       {screen === "checking" && <main className="center-state"><div className="loader"/><p>Verificando sesión…</p></main>}
       {screen === "auth" && <AuthScreen onAuthenticated={authenticated}/>}
       {screen === "editor" && <EditorPanel onClose={() => setScreen("welcome")}/>}
+      {screen === "knowledge" && <KnowledgePanel onClose={() => setScreen("welcome")}/>}
+      {screen === "guide" && guideObjectiveId && <GuidedStudy objectiveId={guideObjectiveId} onBack={() => setScreen("welcome")} onPractice={() => begin(guideObjectiveId)}/>}
 
       {screen === "welcome" && (
-        <main className="welcome">
-          <section className="hero">
-            <div className="eyebrow">Preparación concurso de méritos</div>
-            <h1>Domina Cobro Coactivo<br/><em>con práctica inteligente.</em></h1>
-            <p className="hero-copy">Entrena sobre situaciones concretas, entiende tus errores y repasa justo cuando lo necesitas. Cada respuesta está respaldada por normativa oficial.</p>
-            {error && <div className="alert" role="alert">{error} <small>Comprueba que la API y PostgreSQL estén activos.</small></div>}
-            <button className="button primary" onClick={begin}>Comenzar sesión <span aria-hidden="true">→</span></button>
-            <p className="demo-note">Sesión de demostración · 5–10 minutos</p>
+        <main className="student-home">
+          <section className="student-greeting"><div><div className="eyebrow">Tu preparación DIAN</div><h1>Hola, {student?.name.split(" ")[0]}.</h1><p>Hoy avanzaremos en Cobro Coactivo con una práctica corta y enfocada.</p></div><div className="mastery-overview"><span>{masteryPercent(dashboard?.overallMastery ?? 0)}%</span><small>dominio global</small></div></section>
+          {error && <div className="alert" role="alert">{error}</div>}
+          <section className="today-plan">
+            <div className="today-copy"><span className="today-badge"><Icon name="target"/> Plan recomendado</span><h2>{dashboard?.recommendedObjective?.objective ?? "Diagnóstico inicial"}</h2><p>{dashboard?.recommendedObjective?.description ?? "Responde una primera sesión para que podamos estimar tus fortalezas y vacíos."}</p><div className="plan-meta"><span><Icon name="clock"/> 5–10 minutos</span><span><Icon name="shield"/> Evidencia jurídica</span><span>{dashboard?.recommendedObjective?.questionCount ?? 10} preguntas disponibles</span></div><button className="button primary" onClick={() => openGuide(dashboard?.recommendedObjective?.objectiveId)}>Estudiar ahora <span>→</span></button></div>
+            <div className="plan-score"><small>Dominio del objetivo</small><strong>{masteryPercent(dashboard?.recommendedObjective?.mastery ?? 0)}%</strong><div><span style={{ width: `${masteryPercent(dashboard?.recommendedObjective?.mastery ?? 0)}%` }}/></div><p>{dashboard?.pendingReviews.some((review) => review.due) ? "Tienes un repaso pendiente para hoy." : "La ruta se ajusta después de cada respuesta."}</p></div>
           </section>
-          <section className="preview-card" aria-label="Resumen del entrenamiento">
-            <div className="preview-top"><span>Tu ruta de hoy</span><span className="pill">{dashboard ? `${masteryPercent(dashboard.overallMastery)}% dominio` : "MVP"}</span></div>
-            <div className="preview-title"><Icon name="target"/><div><small>Competencia funcional</small><strong>Cobro Coactivo</strong></div></div>
-            <div className="route-line"><span className="route-step active">1</span><div><strong>Fundamentos del procedimiento</strong><small>Artículo 823 · Estatuto Tributario</small></div></div>
-            <div className="route-line muted"><span className="route-step">2</span><div><strong>Mandamiento de pago</strong><small>Próximamente</small></div></div>
-            <div className="route-line muted"><span className="route-step">3</span><div><strong>Medidas preventivas</strong><small>Próximamente</small></div></div>
-            <div className="legal-seal"><Icon name="shield"/><span><strong>Evidencia verificable</strong><small>Fuentes jurídicas asociadas a cada respuesta</small></span></div>
-          </section>
-          <section className="benefits">
-            <article><Icon name="book"/><div><strong>Aprende con contexto</strong><p>No memorices respuestas aisladas. Comprende la norma que las sustenta.</p></div></article>
-            <article><Icon name="target"/><div><strong>Detecta tus vacíos</strong><p>Cada error ajusta tu nivel de dominio y orienta el siguiente repaso.</p></div></article>
-            <article><Icon name="clock"/><div><strong>Repasa a tiempo</strong><p>El sistema programa revisiones para fortalecer la retención.</p></div></article>
-          </section>
-          {dashboard && dashboard.recentSessions.length > 0 && (
-            <section className="dashboard-strip">
-              <div><small>Progreso acumulado</small><strong>{masteryPercent(dashboard.overallMastery)}%</strong></div>
-              <div><small>Objetivos practicados</small><strong>{dashboard.objectives.length}</strong></div>
-              <div><small>Revisiones pendientes</small><strong>{dashboard.pendingReviews.length}</strong></div>
-              <div><small>Sesiones completadas</small><strong>{dashboard.recentSessions.length}</strong></div>
-            </section>
-          )}
+          <section className="student-metrics"><article><small>Dominio acumulado</small><strong>{masteryPercent(dashboard?.overallMastery ?? 0)}%</strong></article><article><small>Objetivos practicados</small><strong>{dashboard?.objectives.filter((item) => item.totalAttempts > 0).length ?? 0}<span>/{dashboard?.objectives.length ?? 0}</span></strong></article><article><small>Repasos pendientes</small><strong>{dashboard?.pendingReviews.filter((item) => item.due).length ?? 0}</strong></article><article><small>Sesiones completadas</small><strong>{dashboard?.recentSessions.length ?? 0}</strong></article></section>
+          <section className="learning-path"><div className="section-heading"><div><span className="eyebrow">Ruta de aprendizaje</span><h2>Elige qué quieres reforzar</h2></div><button className="text-button" onClick={() => begin()}>Práctica mixta →</button></div><div className="objective-grid">{dashboard?.objectives.map((item, index) => <article className="student-objective" key={item.objectiveId}><div className="objective-top"><span>{String(index + 1).padStart(2, "0")}</span><span className={item.totalAttempts ? "objective-status active" : "objective-status"}>{item.totalAttempts ? "En progreso" : "Sin iniciar"}</span></div><small>{item.topic}</small><h3>{item.objective}</h3><p>{item.description}</p><div className="objective-progress"><div><span style={{ width: `${masteryPercent(item.mastery)}%` }}/></div><strong>{masteryPercent(item.mastery)}%</strong></div><footer><span>{item.questionCount} preguntas</span><button disabled={!item.questionCount} onClick={() => openGuide(item.objectiveId)}>Estudiar →</button></footer></article>)}</div></section>
+          <section className="student-trust"><Icon name="shield"/><div><strong>Estudias con respaldo normativo</strong><p>Cada explicación muestra el artículo exacto que sustenta la respuesta. Tu progreso se usa para escoger el siguiente repaso.</p></div></section>
         </main>
       )}
 

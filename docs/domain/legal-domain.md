@@ -31,3 +31,7 @@ Fuentes objetivo del MVP:
 - `effective_until`: Fecha de fin de vigencia (si aplica).
 - `status`: Estado actual (vigente, derogado, modificado, etc.).
 - `citation`: Formato estándar de citación.
+
+## Knowledge Core
+
+`LegalDocument` registra la fuente lógica y el estado de su pipeline. `LegalVersion` representa una edición temporal inmutable. Durante el MVP, `LegalProvision` implementa el concepto arquitectónico `LegalUnit` y puede representar títulos, capítulos, artículos, parágrafos, incisos, numerales o anexos mediante una jerarquía y un `anchor` estable.

@@ -1,7 +1,17 @@
 # MVP Execution Plan
 
 ## Objective
-Crear un vertical funcional de **Cobro Coactivo** que valide el modelo de dominio completo: desde la ingestión jurídica controlada hasta el motor de aprendizaje y la actualización de dominio (*mastery*) del estudiante.
+Construir automáticamente un core de preparación para la **OPEC 236828 — Analista I**, usando el vertical funcional de Cobro Coactivo como base técnica validada.
+
+## Phase 8: OPEC 236828 Content Factory
+- [x] Incorporar ficha oficial CT-CR-2013 y separar fuentes oficiales de guía orientativa.
+- [x] Inventariar siete competencias funcionales y competencias básicas.
+- [ ] Resolver y verificar URLs de autoridades emisoras.
+- [ ] Descargar, versionar y segmentar automáticamente el corpus prioritario.
+- [ ] Generar mapa completo de competencias, temas y objetivos.
+- [ ] Crear lecturas, preguntas y casos situacionales con evidencia.
+- [ ] Medir cobertura y rellenar automáticamente vacíos de contenido.
+- [ ] Construir plan adaptativo de ocho semanas.
 
 ## Phase 1: Domain Model
 - [x] Implementar entidades base (OPEC, Competency, Topic, LearningObjective).
@@ -36,6 +46,10 @@ Crear un vertical funcional de **Cobro Coactivo** que valide el modelo de domini
 - [x] Seleccionar preguntas no respondidas dentro de la sesión.
 - [x] Finalizar sesiones y mostrar resumen de resultados.
 - [x] Exponer dashboard de dominio, revisiones y sesiones recientes.
+- [x] Mostrar una ruta completa para estudiantes nuevos y con progreso.
+- [x] Recomendar la práctica diaria según repaso vencido o dominio más bajo.
+- [x] Permitir práctica mixta o enfocada por objetivo de aprendizaje.
+- [x] Incorporar lectura guiada con conceptos clave y evidencia jurídica validada antes de practicar.
 
 ## Phase 5.3: Multi-user Authentication
 - [x] Implementar registro, ingreso, sesión persistente y cierre de sesión.
@@ -50,13 +64,26 @@ Crear un vertical funcional de **Cobro Coactivo** que valide el modelo de domini
 - [x] Registrar editor y fecha de aprobación al publicar.
 - [x] Impedir que preguntas no publicadas aparezcan en sesiones.
 
+## Phase 5.5: Knowledge Core
+- [x] Registrar documentos oficiales y estado explícito del pipeline.
+- [x] Gestionar versiones temporales y versión actual.
+- [x] Modelar unidades jurídicas jerárquicas con tipo, anchor y validación.
+- [x] Aprobar o rechazar unidades antes de crear evidencia.
+- [x] Registrar relaciones normativas explícitas entre unidades.
+- [x] Integrar el panel de fuentes con el panel editorial de preguntas.
+
 ## Phase 6: AI Gateway / Tutor
-- [ ] Integrar proveedor LLM a través de una abstracción.
+- [x] Integrar proveedor LLM a través de una abstracción.
+- [x] Generar preguntas estructuradas desde evidencia jurídica y publicarlas tras validación automática.
+- [x] Exportar prompts e importar JSON de ChatGPT Plus sin requerir API key.
 - [ ] Habilitar feedback automático para el estudiante basado en la evidencia jurídica.
 
 ## Phase 7: Legal Ingestion (MVP Scope)
-- [ ] Parsear fragmentos controlados (Estatuto Tributario, CGP, Ley 1066).
-- [ ] Extraer artículos relacionados a Cobro Coactivo y persistirlos.
+- [x] Cargar PDF oficial con validación, hash SHA-256 y conservación del original.
+- [x] Extraer texto y segmentar automáticamente artículos como unidades pendientes.
+- [x] Proteger contenido aprobado durante una reingesta.
+- [ ] Añadir OCR para fuentes escaneadas sin capa de texto.
+- [ ] Migrar el procesamiento a una cola y almacenamiento de objetos para despliegue compartido.
 
 ## Definition of Done (DoD)
 - [x] El estudiante puede iniciar una sesión y practicar preguntas de Cobro Coactivo.
