@@ -16,10 +16,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function startSession() {
+export function startSession(mode: "LEARN" | "PRACTICE" | "ASSESS" | "REVIEW" | "CASE" = "PRACTICE", focusObjectiveId?: string) {
   return request<SessionStartResponse>("/api/sessions", {
     method: "POST",
-    body: JSON.stringify({ competencyId: COMPETENCY_ID }),
+    body: JSON.stringify({ competencyId: COMPETENCY_ID, mode, focusObjectiveId }),
   });
 }
 

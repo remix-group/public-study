@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import type { Opec, Competency, Topic, LearningObjective } from "./entities.js";
+import type { Opec, Competency, Block, Topic, LearningObjective } from "./entities.js";
 
 const now = new Date();
 
@@ -17,6 +17,8 @@ describe("OPEC entities", () => {
     description: "Cumplimiento de Obligaciones Tributarias",
     level: "Técnico",
     area: "Administración de Cartera",
+    process: "Cumplimiento de obligaciones tributarias",
+    subprocess: "Administración de cartera",
     status: "active",
     createdAt: now,
     updatedAt: now,
@@ -32,9 +34,14 @@ describe("OPEC entities", () => {
     updatedAt: now,
   };
 
+  const block: Block = {
+    id: "block-1", competencyId: competency.id, name: "Proceso de cobro", description: "Ruta principal",
+    order: 1, progressionThreshold: 0.7, status: "active", createdAt: now, updatedAt: now,
+  };
+
   const topic: Topic = {
     id: "topic-1",
-    competencyId: competency.id,
+    blockId: block.id,
     name: "Mandamiento de Pago",
     description: "Requisitos y procedimiento del mandamiento de pago",
     order: 1,
@@ -49,6 +56,7 @@ describe("OPEC entities", () => {
     name: "Identificar requisitos del mandamiento de pago",
     description: "El estudiante puede enumerar y explicar los requisitos legales del mandamiento de pago",
     order: 1,
+    critical: true,
     status: "active",
     createdAt: now,
     updatedAt: now,
@@ -65,8 +73,9 @@ describe("OPEC entities", () => {
     expect(competency.name).toBe("Cobro Coactivo");
   });
 
-  it("should link Topic to Competency", () => {
-    expect(topic.competencyId).toBe(competency.id);
+  it("should link Topic to Block", () => {
+    expect(block.competencyId).toBe(competency.id);
+    expect(topic.blockId).toBe(block.id);
     expect(topic.order).toBe(1);
   });
 
@@ -76,9 +85,10 @@ describe("OPEC entities", () => {
   });
 
   it("should maintain the full hierarchy chain", () => {
-    // OPEC -> Competency -> Topic -> LearningObjective
+    // OPEC -> Competency -> Block -> Topic -> LearningObjective
     expect(competency.opecId).toBe(opec.id);
-    expect(topic.competencyId).toBe(competency.id);
+    expect(block.competencyId).toBe(competency.id);
+    expect(topic.blockId).toBe(block.id);
     expect(objective.topicId).toBe(topic.id);
   });
 });

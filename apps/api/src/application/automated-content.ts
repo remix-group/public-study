@@ -9,7 +9,7 @@ export async function generateDocumentStudyMaterial(documentId: string, provider
   });
   if (!document) throw new AttemptNotFoundError("Legal document not found");
   if (!document.provisions.length) throw new AttemptConflictError("El documento aún no contiene unidades jurídicas extraídas");
-  const objectives = await prisma.learningObjective.findMany({ where: { status: "active", topic: { status: "active", competency: { status: "active" } } }, orderBy: [{ topic: { order: "asc" } }, { order: "asc" }] });
+  const objectives = await prisma.learningObjective.findMany({ where: { status: "active", topic: { status: "active", block: { status: "active", competency: { status: "active" } } } }, orderBy: [{ topic: { block: { order: "asc" } } }, { topic: { order: "asc" } }, { order: "asc" }] });
   if (!objectives.length) throw new AttemptConflictError("No hay objetivos de aprendizaje configurados");
 
   const approved = await prisma.$transaction(async (tx) => {

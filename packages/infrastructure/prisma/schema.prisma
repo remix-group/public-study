@@ -23,8 +23,10 @@ model Opec {
   id          String   @id @default(cuid())
   name        String
   description String
-  level       String   // e.g. "Técnico"
-  area        String   // e.g. "Administración de Cartera"
+  level       String // e.g. "Técnico"
+  area        String // e.g. "Administración de Cartera"
+  process     String   @default("")
+  subprocess  String   @default("")
   status      String   @default("active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -43,25 +45,44 @@ model Competency {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  opec           Opec           @relation(fields: [opecId], references: [id])
-  topics         Topic[]
-  studySessions  StudySession[]
+  opec          Opec           @relation(fields: [opecId], references: [id])
+  blocks        Block[]
+  studySessions StudySession[]
 
   @@map("competencies")
 }
 
-model Topic {
-  id           String   @id @default(cuid())
-  competencyId String
-  name         String
-  description  String
-  order        Int
-  status       String   @default("active")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+model Block {
+  id                   String   @id @default(cuid())
+  competencyId         String
+  name                 String
+  description          String
+  order                Int
+  progressionThreshold Float    @default(0.7)
+  status               String   @default("active")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  competency         Competency         @relation(fields: [competencyId], references: [id])
+  competency Competency @relation(fields: [competencyId], references: [id])
+  topics     Topic[]
+
+  @@unique([competencyId, order])
+  @@map("blocks")
+}
+
+model Topic {
+  id          String   @id @default(cuid())
+  blockId     String
+  name        String
+  description String
+  order       Int
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  block              Block               @relation(fields: [blockId], references: [id])
   learningObjectives LearningObjective[]
+  progressStates     TopicProgress[]
 
   @@map("topics")
 }
@@ -72,6 +93,7 @@ model LearningObjective {
   name        String
   description String
   order       Int
+  critical    Boolean  @default(false)
   status      String   @default("active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -92,24 +114,24 @@ model LearningObjective {
 // ─────────────────────────────────────────────
 
 model LegalDocument {
-  id             String    @id @default(cuid())
-  title          String
-  source         String
-  authority      String    @default("DIAN")
-  documentType   String    @default("norm")
-  officialUrl    String    @default("")
-  contentHash    String?
+  id              String    @id @default(cuid())
+  title           String
+  source          String
+  authority       String    @default("DIAN")
+  documentType    String    @default("norm")
+  officialUrl     String    @default("")
+  contentHash     String?
   originalFileKey String?
-  pipelineStatus String    @default("RECEIVED")
-  effectiveFrom  DateTime
-  effectiveUntil DateTime?
-  status         String    @default("vigente") // vigente | derogado | modificado | suspendido
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  pipelineStatus  String    @default("RECEIVED")
+  effectiveFrom   DateTime
+  effectiveUntil  DateTime?
+  status          String    @default("vigente") // vigente | derogado | modificado | suspendido
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  provisions      LegalProvision[]
-  versions         LegalVersion[]
-  referencesTo    LegalReference[] @relation("ReferenceToDocument")
+  provisions   LegalProvision[]
+  versions     LegalVersion[]
+  referencesTo LegalReference[] @relation("ReferenceToDocument")
 
   @@map("legal_documents")
 }
@@ -126,7 +148,7 @@ model LegalVersion {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  document  LegalDocument    @relation(fields: [documentId], references: [id])
+  document   LegalDocument    @relation(fields: [documentId], references: [id])
   provisions LegalProvision[]
 
   @@unique([documentId, label])
@@ -135,24 +157,24 @@ model LegalVersion {
 }
 
 model LegalProvision {
-  id             String    @id @default(cuid())
-  documentId     String
-  versionId      String?
+  id                String    @id @default(cuid())
+  documentId        String
+  versionId         String?
   parentProvisionId String?
-  unitType       String    @default("article")
-  anchor         String    @default("")
-  order          Int       @default(0)
-  validationStatus String  @default("pending")
-  editorialStatus String   @default("draft")
-  number         String    // e.g. "Art. 837"
-  title          String
-  content        String
-  citation       String
-  effectiveFrom  DateTime
-  effectiveUntil DateTime?
-  status         String    @default("vigente")
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  unitType          String    @default("article")
+  anchor            String    @default("")
+  order             Int       @default(0)
+  validationStatus  String    @default("pending")
+  editorialStatus   String    @default("draft")
+  number            String // e.g. "Art. 837"
+  title             String
+  content           String
+  citation          String
+  effectiveFrom     DateTime
+  effectiveUntil    DateTime?
+  status            String    @default("vigente")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   document          LegalDocument    @relation(fields: [documentId], references: [id])
   version           LegalVersion?    @relation(fields: [versionId], references: [id])
@@ -164,19 +186,19 @@ model LegalProvision {
   referencesFrom    LegalReference[] @relation("ReferenceFromProvision")
   referencesTo      LegalReference[] @relation("ReferenceToProvision")
 
-  @@map("legal_provisions")
   @@index([versionId, order])
   @@index([editorialStatus, validationStatus])
+  @@map("legal_provisions")
 }
 
 model LegalRelation {
-  id                  String   @id @default(cuid())
-  sourceProvisionId   String
-  targetProvisionId   String
-  type                String   // MODIFIES | ADDS | REPEALS | REPLACES | REFERENCES | REGULATES
-  description         String
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                String   @id @default(cuid())
+  sourceProvisionId String
+  targetProvisionId String
+  type              String // MODIFIES | ADDS | REPEALS | REPLACES | REFERENCES | REGULATES
+  description       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   sourceProvision LegalProvision @relation("RelationSource", fields: [sourceProvisionId], references: [id])
   targetProvision LegalProvision @relation("RelationTarget", fields: [targetProvisionId], references: [id])
@@ -194,7 +216,7 @@ model LegalReference {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  fromProvision LegalProvision @relation("ReferenceFromProvision", fields: [fromProvisionId], references: [id])
+  fromProvision LegalProvision  @relation("ReferenceFromProvision", fields: [fromProvisionId], references: [id])
   toProvision   LegalProvision? @relation("ReferenceToProvision", fields: [toProvisionId], references: [id])
   toDocument    LegalDocument?  @relation("ReferenceToDocument", fields: [toDocumentId], references: [id])
 
@@ -202,14 +224,14 @@ model LegalReference {
 }
 
 model Evidence {
-  id           String   @id @default(cuid())
-  provisionId  String
-  content      String
-  citation     String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  provisionId String
+  content     String
+  citation    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  provision LegalProvision @relation(fields: [provisionId], references: [id])
+  provision LegalProvision     @relation(fields: [provisionId], references: [id])
   concepts  ConceptEvidence[]
   questions QuestionEvidence[]
   cases     CaseEvidence[]
@@ -222,13 +244,13 @@ model Evidence {
 // ─────────────────────────────────────────────
 
 model Student {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
   passwordHash String
-  role      String   @default("student") // student | editor
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role         String   @default("student") // student | editor
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   questionAttempts QuestionAttempt[]
   caseAttempts     CaseAttempt[]
@@ -236,6 +258,7 @@ model Student {
   reviewSchedules  ReviewSchedule[]
   studySessions    StudySession[]
   authSessions     AuthSession[]
+  topicProgress    TopicProgress[]
 
   @@map("students")
 }
@@ -283,26 +306,27 @@ model ConceptEvidence {
 }
 
 model Question {
-  id            String   @id @default(cuid())
-  objectiveId   String
-  type          String   // multiple_choice | true_false | open_ended
-  difficulty    Float    // 0.0 – 1.0
-  stem          String
-  options       Json?    // Array of { key, text }
-  correctAnswer String
-  explanation   String
-  editorialStatus String @default("draft") // draft | published | archived
-  reviewedBy    String?
-  reviewedAt    DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String    @id @default(cuid())
+  objectiveId     String
+  type            String // multiple_choice | true_false | open_ended
+  difficulty      Float // 0.0 – 1.0
+  stem            String
+  options         Json? // Array of { key, text }
+  correctAnswer   String
+  explanation     String
+  errorType       String    @default("UNKNOWN_CONCEPT")
+  editorialStatus String    @default("draft") // draft | published | archived
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  objective LearningObjective @relation(fields: [objectiveId], references: [id])
+  objective LearningObjective  @relation(fields: [objectiveId], references: [id])
   evidences QuestionEvidence[]
   attempts  QuestionAttempt[]
 
-  @@map("questions")
   @@index([editorialStatus])
+  @@map("questions")
 }
 
 /// Junction table: Question ↔ Evidence (M2M)
@@ -321,7 +345,7 @@ model QuestionEvidence {
 model Case {
   id               String   @id @default(cuid())
   objectiveId      String
-  difficulty       Float    // 0.0 – 1.0
+  difficulty       Float // 0.0 – 1.0
   scenario         String
   expectedAnalysis String
   createdAt        DateTime @default(now())
@@ -348,18 +372,18 @@ model CaseEvidence {
 }
 
 model QuestionAttempt {
-  id          String   @id @default(cuid())
-  studentId   String
-  questionId  String
-  sessionId   String
-  answer      String
-  result      String   // correct | incorrect | partial
-  timeSpentMs Int
-  confidence  Float?   // 0.0 – 1.0
-  difficulty  Float    // immutable evaluation snapshot
+  id                String   @id @default(cuid())
+  studentId         String
+  questionId        String
+  sessionId         String
+  answer            String
+  result            String // correct | incorrect | partial
+  timeSpentMs       Int
+  confidence        Float? // 0.0 – 1.0
+  difficulty        Float // immutable evaluation snapshot
   evidenceSnapshots Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   student  Student      @relation(fields: [studentId], references: [id])
   question Question     @relation(fields: [questionId], references: [id])
@@ -375,7 +399,7 @@ model CaseAttempt {
   caseId      String
   sessionId   String
   response    String
-  result      String   // correct | incorrect | partial
+  result      String // correct | incorrect | partial
   timeSpentMs Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -389,14 +413,14 @@ model CaseAttempt {
 }
 
 model Mistake {
-  id                  String   @id @default(cuid())
-  questionAttemptId   String?
-  caseAttemptId       String?
-  objectiveId         String
-  type                String
-  description         String
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                String   @id @default(cuid())
+  questionAttemptId String?
+  caseAttemptId     String?
+  objectiveId       String
+  type              String
+  description       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   questionAttempt QuestionAttempt?  @relation("QuestionAttemptMistakes", fields: [questionAttemptId], references: [id])
   caseAttempt     CaseAttempt?      @relation("CaseAttemptMistakes", fields: [caseAttemptId], references: [id])
@@ -406,18 +430,23 @@ model Mistake {
 }
 
 model MasteryState {
-  id              String    @id @default(cuid())
-  studentId       String
-  objectiveId     String
-  mastery         Float     // 0.0 – 1.0
-  confidence      Float     // 0.0 – 1.0
-  retention       Float     // 0.0 – 1.0
-  totalAttempts   Int       @default(0)
-  correctAttempts Int       @default(0)
-  consecutiveCorrect Int    @default(0)
-  lastAttemptAt   DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  studentId          String
+  objectiveId        String
+  mastery            Float // 0.0 – 1.0
+  confidence         Float // 0.0 – 1.0
+  retention          Float // 0.0 – 1.0
+  recall             Float     @default(0)
+  comprehension      Float     @default(0)
+  application        Float     @default(0)
+  sourceAwareness    Float     @default(0)
+  stability          Float     @default(0)
+  totalAttempts      Int       @default(0)
+  correctAttempts    Int       @default(0)
+  consecutiveCorrect Int       @default(0)
+  lastAttemptAt      DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   student   Student           @relation(fields: [studentId], references: [id])
   objective LearningObjective @relation(fields: [objectiveId], references: [id])
@@ -431,7 +460,7 @@ model ReviewSchedule {
   studentId   String
   objectiveId String
   scheduledAt DateTime
-  interval    Int       // days until next review
+  interval    Int // days until next review
   completed   Boolean   @default(false)
   completedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -445,15 +474,17 @@ model ReviewSchedule {
 }
 
 model StudySession {
-  id              String    @id @default(cuid())
-  studentId       String
-  competencyId    String
-  startedAt       DateTime  @default(now())
-  finishedAt      DateTime?
-  totalQuestions  Int       @default(0)
-  correctAnswers  Int       @default(0)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  studentId        String
+  competencyId     String
+  mode             String    @default("PRACTICE")
+  focusObjectiveId String?
+  startedAt        DateTime  @default(now())
+  finishedAt       DateTime?
+  totalQuestions   Int       @default(0)
+  correctAnswers   Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   student          Student           @relation(fields: [studentId], references: [id])
   competency       Competency        @relation(fields: [competencyId], references: [id])
@@ -461,4 +492,24 @@ model StudySession {
   caseAttempts     CaseAttempt[]
 
   @@map("study_sessions")
+}
+
+model TopicProgress {
+  id          String    @id @default(cuid())
+  studentId   String
+  topicId     String
+  state       String    @default("LOCKED")
+  unlockedAt  DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  masteredAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  topic   Topic   @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, topicId])
+  @@index([studentId, state])
+  @@map("topic_progress")
 }

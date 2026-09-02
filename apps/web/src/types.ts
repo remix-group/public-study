@@ -21,7 +21,7 @@ export interface StudySession {
 
 export interface SessionStartResponse {
   session: StudySession;
-  competency: { id: string; name: string; description: string; topics: Topic[] };
+  competency: { id: string; name: string; description: string; blocks: Array<{ id: string; name: string; description: string; progressionThreshold: number; topics: Topic[] }> };
 }
 
 export interface QuestionOption { key: string; text: string }
@@ -49,6 +49,13 @@ export interface AttemptResponse {
   masteryDelta: number;
   nextReviewDate: string;
   mistakes: Array<{ id: string; type: string; description: string }>;
+  masteryDimensions: MasteryDimensions;
+}
+export interface MasteryDimensions { recall: number; comprehension: number; application: number; sourceAwareness: number; stability: number }
+export interface ObjectiveProgress {
+  objectiveId: string; objective: string; description: string; topicId: string; topic: string; blockId: string; block: string;
+  critical: boolean; curriculumState: string; accessible: boolean; mastery: number; totalAttempts: number; retention: number;
+  questionCount: number; dimensions: MasteryDimensions;
 }
 
 export interface NextQuestionResponse { question: Question; objective: LearningObjective }
@@ -59,16 +66,21 @@ export interface SessionSummary {
 }
 export interface Dashboard {
   student: { id: string; name: string };
+  process: { title: string; steps: string[] };
   overallMastery: number;
-  objectives: Array<{ objectiveId: string; objective: string; description: string; topic: string; mastery: number; totalAttempts: number; retention: number; questionCount: number }>;
-  recommendedObjective: { objectiveId: string; objective: string; description: string; topic: string; mastery: number; totalAttempts: number; retention: number; questionCount: number } | null;
+  objectives: ObjectiveProgress[];
+  route: Array<{ id: string; name: string; description: string; threshold: number; competency: string; profile: string; topics: Array<{ id: string; name: string; description: string; order: number; state: string; accessible: boolean; mastery: number; objectives: ObjectiveProgress[] }> }>;
+  recommendedObjective: (ObjectiveProgress & { action: "LEARN" | "PRACTICE" | "REVIEW"; reason: string }) | null;
   pendingReviews: Array<{ objectiveId: string; objective: string; scheduledAt: string; due: boolean }>;
   recentSessions: StudySession[];
+  recentMistakes: Array<{ id: string; type: string; description: string; objective: string; topic: string; createdAt: string }>;
 }
 export interface StudyGuide {
   objective: { id: string; name: string; description: string };
   topic: { id: string; name: string };
   competency: { id: string; name: string };
+  block: { id: string; name: string };
+  studyProcess: Array<{ mode: string; title: string; description: string }>;
   keyConcepts: string[];
   evidences: Array<{ id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string; documentTitle: string; officialUrl: string }>;
   questionCount: number;

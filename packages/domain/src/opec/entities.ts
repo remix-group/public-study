@@ -18,6 +18,8 @@ export interface Opec extends BaseEntity {
   readonly description: string;
   readonly level: string; // e.g. "Técnico"
   readonly area: string; // e.g. "Administración de Cartera"
+  readonly process: string;
+  readonly subprocess: string;
   readonly status: Status;
 }
 
@@ -32,12 +34,22 @@ export interface Competency extends BaseEntity {
   readonly status: Status;
 }
 
+/** A major ordered stage in the curriculum. */
+export interface Block extends BaseEntity {
+  readonly competencyId: EntityId;
+  readonly name: string;
+  readonly description: string;
+  readonly order: number;
+  readonly progressionThreshold: number;
+  readonly status: Status;
+}
+
 /**
  * A topic within a competency that groups related learning objectives.
  * Example: "Embargo", "Secuestro", "Remate"
  */
 export interface Topic extends BaseEntity {
-  readonly competencyId: EntityId;
+  readonly blockId: EntityId;
   readonly name: string;
   readonly description: string;
   readonly order: number;
@@ -53,5 +65,6 @@ export interface LearningObjective extends BaseEntity {
   readonly name: string;
   readonly description: string;
   readonly order: number;
+  readonly critical: boolean;
   readonly status: Status;
 }

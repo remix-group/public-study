@@ -6,14 +6,19 @@ Este documento integra los diferentes subdominios (OPEC, Jurídico y de Aprendiz
 
 La jerarquía desciende desde la definición de la vacante hasta las disposiciones legales atómicas que el estudiante debe conocer.
 
+`OPEC` es el nombre técnico existente de la entidad que representa el `JobProfile`
+de la especificación funcional. No se crea una segunda entidad para el mismo concepto.
+
 ```text
-OPEC
+OPEC / JobProfile
  │
  └── Competency
        │
-       └── Topic
+       └── Block
              │
-             └── LearningObjective
+             └── Topic
+                   │
+                   └── LearningObjective
                     │
         ┌───────────┼────────────┐
         ↓           ↓            ↓
@@ -47,6 +52,22 @@ Evaluation
 Mistake
    ↓
 MasteryState
+   ├── recall / comprehension / application
+   ├── sourceAwareness / stability
+   ├── TopicProgress (ruta y acceso persistente)
+   ├── Recommendation (derivada)
+   └── ReviewSchedule (mantenimiento)
 ```
+
+## Flujo pedagógico operativo
+
+```text
+Ruta recomendada -> Recuperación inicial -> Actividad -> Respuesta
+        -> Feedback basado en evidencia -> Diagnóstico de error
+        -> Mastery multidimensional -> Progresión / Refuerzo / Repaso
+```
+
+La ruta es secuencial, pero el acceso es acumulativo: un tema desbloqueado nunca se
+vuelve a bloquear. El umbral inicial de progresión es 70 %, configurable por bloque.
 
 **Nota:** Cualquier nueva entidad introducida en el desarrollo debe reflejarse en este modelo antes o durante su implementación (Regla #2 de AGENTS.md).

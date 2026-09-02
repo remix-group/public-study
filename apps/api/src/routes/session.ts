@@ -14,6 +14,8 @@ sessionRouter.use(requireAuth);
 
 const startSchema = z.object({
   competencyId: z.string().min(1),
+  mode: z.enum(["LEARN", "PRACTICE", "ASSESS", "REVIEW", "CASE"]).optional(),
+  focusObjectiveId: z.string().min(1).optional(),
 });
 const attemptSchema = z.object({
   questionId: z.string().min(1),

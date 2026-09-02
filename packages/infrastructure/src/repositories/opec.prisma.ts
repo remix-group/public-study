@@ -58,8 +58,8 @@ export class TopicPrismaRepository implements TopicRepository {
 
   async findByCompetencyId(competencyId: EntityId): Promise<Topic[]> {
     const results = await prisma.topic.findMany({
-      where: { competencyId },
-      orderBy: { order: "asc" },
+      where: { block: { competencyId } },
+      orderBy: [{ block: { order: "asc" } }, { order: "asc" }],
     });
     return results as Topic[];
   }

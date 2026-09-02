@@ -3,6 +3,8 @@ import { prisma } from "@dian-study/infrastructure";
 export interface StartStudySessionInput {
   studentId: string;
   competencyId: string;
+  mode?: "LEARN" | "PRACTICE" | "ASSESS" | "REVIEW" | "CASE";
+  focusObjectiveId?: string;
 }
 
 export class StudySessionNotFoundError extends Error {}
@@ -14,10 +16,18 @@ export async function startStudySession(input: StartStudySessionInput) {
       tx.competency.findUnique({
         where: { id: input.competencyId },
         include: {
-          topics: {
+          blocks: {
             where: { status: "active" },
             orderBy: { order: "asc" },
-            include: { learningObjectives: { where: { status: "active" }, orderBy: { order: "asc" } } },
+            include: {
+              topics: {
+                where: { status: "active" },
+                orderBy: { order: "asc" },
+                include: {
+                  learningObjectives: { where: { status: "active" }, orderBy: { order: "asc" } },
+                },
+              },
+            },
           },
         },
       }),
@@ -26,7 +36,7 @@ export async function startStudySession(input: StartStudySessionInput) {
     if (!competency || competency.status !== "active") throw new StudySessionNotFoundError("Active competency not found");
 
     const session = await tx.studySession.create({
-      data: { studentId: input.studentId, competencyId: input.competencyId },
+      data: { studentId: input.studentId, competencyId: input.competencyId, mode: input.mode ?? "PRACTICE", focusObjectiveId: input.focusObjectiveId },
     });
     return { session, competency };
   });

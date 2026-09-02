@@ -19,6 +19,11 @@ export type QuestionType =
 export type AttemptResult = "correct" | "incorrect" | "partial";
 export type EditorialStatus = "draft" | "published" | "archived";
 export type StudentRole = "student" | "editor";
+export type StudyMode = "LEARN" | "PRACTICE" | "ASSESS" | "REVIEW" | "CASE";
+export type CurriculumState = "LOCKED" | "AVAILABLE" | "IN_PROGRESS" | "COMPLETED" | "MASTERED";
+export type MistakeType =
+  | "UNKNOWN_CONCEPT" | "CONCEPT_CONFUSION" | "FORGOT_RULE" | "MISSED_EXCEPTION"
+  | "NORM_VERSION_ERROR" | "PROCEDURE_ORDER_ERROR" | "CASE_INTERPRETATION_ERROR" | "CARELESS_ERROR";
 
 /** Immutable legal evidence captured when an attempt is evaluated. */
 export interface EvidenceSnapshot {
@@ -49,6 +54,7 @@ export interface Question extends BaseEntity {
   readonly options: QuestionOption[] | null;
   readonly correctAnswer: string;
   readonly explanation: string;
+  readonly errorType: MistakeType;
   readonly evidenceIds: EntityId[];
   readonly editorialStatus: EditorialStatus;
   readonly reviewedBy: EntityId | null;
@@ -118,6 +124,11 @@ export interface MasteryState extends BaseEntity {
   readonly mastery: number; // 0.0 – 1.0
   readonly confidence: number; // 0.0 – 1.0
   readonly retention: number; // 0.0 – 1.0
+  readonly recall: number;
+  readonly comprehension: number;
+  readonly application: number;
+  readonly sourceAwareness: number;
+  readonly stability: number;
   readonly totalAttempts: number;
   readonly correctAttempts: number;
   readonly consecutiveCorrect: number;
@@ -142,10 +153,23 @@ export interface ReviewSchedule extends BaseEntity {
 export interface StudySession extends BaseEntity {
   readonly studentId: EntityId;
   readonly competencyId: EntityId;
+  readonly mode: StudyMode;
+  readonly focusObjectiveId: EntityId | null;
   readonly startedAt: Date;
   readonly finishedAt: Date | null;
   readonly totalQuestions: number;
   readonly correctAnswers: number;
+}
+
+/** Persistent access/progression state for one topic. */
+export interface TopicProgress extends BaseEntity {
+  readonly studentId: EntityId;
+  readonly topicId: EntityId;
+  readonly state: CurriculumState;
+  readonly unlockedAt: Date | null;
+  readonly startedAt: Date | null;
+  readonly completedAt: Date | null;
+  readonly masteredAt: Date | null;
 }
 
 /**

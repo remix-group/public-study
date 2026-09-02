@@ -1,6 +1,7 @@
 import { LearningEngine } from "@dian-study/learning";
 import { Prisma, prisma } from "@dian-study/infrastructure";
 import type { EvidenceSnapshot, MasteryState, Mistake, QuestionAttempt } from "@dian-study/domain";
+import { updateTopicProgress } from "./progression.js";
 
 export interface SubmitQuestionAttemptInput {
   studentId: string;
@@ -25,12 +26,12 @@ export async function submitQuestionAttempt(input: SubmitQuestionAttemptInput) {
     const question = await tx.question.findUnique({
       where: { id: input.questionId },
       include: {
-        objective: { include: { topic: true } },
+        objective: { include: { topic: { include: { block: true } } } },
         evidences: { include: { evidence: true } },
       },
     });
     if (!question || question.editorialStatus !== "published") throw new AttemptNotFoundError("Published question not found");
-    if (question.objective.topic.competencyId !== session.competencyId) {
+    if (question.objective.topic.block.competencyId !== session.competencyId) {
       throw new AttemptConflictError("Question does not belong to the session competency");
     }
     if (question.evidences.length === 0) throw new AttemptConflictError("Question has no legal evidence");
@@ -59,12 +60,27 @@ export async function submitQuestionAttempt(input: SubmitQuestionAttemptInput) {
 
     const mistakes: Mistake[] = [];
     if (!isCorrect) {
+      const diagnosedType = input.confidence !== undefined && input.confidence < 0.3
+        ? "UNKNOWN_CONCEPT"
+        : input.confidence !== undefined && input.confidence > 0.8
+          ? "CARELESS_ERROR"
+          : question.errorType;
+      const descriptions: Record<string, string> = {
+        UNKNOWN_CONCEPT: "La respuesta indica que el concepto todavía no está adquirido.",
+        CONCEPT_CONFUSION: "La respuesta confunde conceptos o reglas cercanas.",
+        FORGOT_RULE: "La regla fue recuperada de forma incompleta.",
+        MISSED_EXCEPTION: "La respuesta no identificó una condición o excepción relevante.",
+        NORM_VERSION_ERROR: "La respuesta parece apoyarse en una versión normativa distinta.",
+        PROCEDURE_ORDER_ERROR: "La secuencia del procedimiento no fue identificada correctamente.",
+        CASE_INTERPRETATION_ERROR: "La situación jurídica fue interpretada de forma incorrecta.",
+        CARELESS_ERROR: "La alta seguridad y el resultado sugieren revisar la lectura cuidadosa de la pregunta.",
+      };
       const mistake = await tx.mistake.create({
         data: {
           questionAttemptId: storedAttempt.id,
           objectiveId: question.objectiveId,
-          type: "incorrect_answer",
-          description: "La respuesta no coincide con la respuesta sustentada por la evidencia jurídica.",
+          type: diagnosedType,
+          description: descriptions[diagnosedType] ?? descriptions.UNKNOWN_CONCEPT,
         },
       });
       mistakes.push({ ...mistake, attemptId: storedAttempt.id });
@@ -86,6 +102,9 @@ export async function submitQuestionAttempt(input: SubmitQuestionAttemptInput) {
       update: {
         mastery: evaluation.newState.mastery, confidence: evaluation.newState.confidence,
         retention: evaluation.newState.retention, totalAttempts: evaluation.newState.totalAttempts,
+        recall: evaluation.newState.recall, comprehension: evaluation.newState.comprehension,
+        application: evaluation.newState.application, sourceAwareness: evaluation.newState.sourceAwareness,
+        stability: evaluation.newState.stability,
         correctAttempts: evaluation.newState.correctAttempts, consecutiveCorrect: evaluation.newState.consecutiveCorrect,
         lastAttemptAt: evaluation.newState.lastAttemptAt,
       },
@@ -93,6 +112,9 @@ export async function submitQuestionAttempt(input: SubmitQuestionAttemptInput) {
         studentId: input.studentId, objectiveId: question.objectiveId,
         mastery: evaluation.newState.mastery, confidence: evaluation.newState.confidence,
         retention: evaluation.newState.retention, totalAttempts: evaluation.newState.totalAttempts,
+        recall: evaluation.newState.recall, comprehension: evaluation.newState.comprehension,
+        application: evaluation.newState.application, sourceAwareness: evaluation.newState.sourceAwareness,
+        stability: evaluation.newState.stability,
         correctAttempts: evaluation.newState.correctAttempts, consecutiveCorrect: evaluation.newState.consecutiveCorrect,
         lastAttemptAt: evaluation.newState.lastAttemptAt,
       },
@@ -106,10 +128,16 @@ export async function submitQuestionAttempt(input: SubmitQuestionAttemptInput) {
       where: { id: input.sessionId },
       data: { totalQuestions: { increment: 1 }, correctAnswers: { increment: isCorrect ? 1 : 0 } },
     });
+    await updateTopicProgress(input.studentId, question.objectiveId, tx);
 
     return {
       attempt, isCorrect, mistakes, explanation: question.explanation, evidence: evidenceSnapshots,
       mastery: evaluation.newState.mastery,
+      masteryDimensions: {
+        recall: evaluation.newState.recall, comprehension: evaluation.newState.comprehension,
+        application: evaluation.newState.application, sourceAwareness: evaluation.newState.sourceAwareness,
+        stability: evaluation.newState.stability,
+      },
       masteryDelta: evaluation.newState.mastery - currentState.mastery,
       nextReviewDate: evaluation.nextReviewDate,
     };

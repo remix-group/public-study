@@ -346,7 +346,66 @@ button { cursor: pointer; }
 .relation-card > span { padding: 4px 7px; background: var(--green-100); color: var(--green-800); border-radius: 10px; font-size: 8px; font-weight: 800; }
 .relation-card p { grid-column: 2 / -1; color: var(--ink-muted); margin: 3px 0 0; }
 
+.learning-process { display: grid; grid-template-columns: .75fr 1.25fr; gap: 34px; align-items: center; margin: 24px 0 30px; padding: 28px; background: var(--paper); border: 1px solid var(--line); border-radius: 20px; }
+.learning-process h2 { font-family: "Fraunces", serif; font-size: 28px; margin: 8px 0; }
+.learning-process p { color: var(--ink-muted); font-size: 13px; line-height: 1.6; }
+.learning-process ol { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+.learning-process li { min-height: 86px; padding: 13px; border-radius: 12px; background: #edf3ec; display: grid; align-content: space-between; gap: 8px; font-size: 11px; }
+.learning-process li span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--green-950); color: var(--lime); font-weight: 800; }
+.recommendation-reason { width: fit-content; margin: 15px 0; padding: 10px 12px; background: rgba(213,230,84,.14); border: 1px solid rgba(213,230,84,.35); border-radius: 9px; color: #e6ebc5; font-size: 11px; }
+.mode-actions { display: flex; gap: 10px; align-items: center; }
+.button.secondary { border: 1px solid rgba(255,255,255,.3); color: white; background: transparent; }
+.route-board { margin-bottom: 22px; }
+.route-board > article { padding: 24px; background: #e8eee6; border-radius: 18px; }
+.route-board header { display: flex; justify-content: space-between; gap: 20px; }
+.route-board header small { color: var(--green-600); text-transform: uppercase; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.route-board header h3 { font-family: "Fraunces", serif; font-size: 25px; margin: 6px 0; }
+.route-board header p { color: var(--ink-muted); margin: 0; font-size: 12px; }
+.route-board header > span { height: fit-content; padding: 7px 10px; border-radius: 20px; background: var(--paper); color: var(--green-600); font-size: 10px; font-weight: 800; }
+.route-topics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+.route-topic { display: grid; grid-template-columns: auto 1fr auto; gap: 11px; align-items: start; padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: var(--paper); }
+.route-topic.locked { opacity: .55; filter: grayscale(.7); }
+.route-topic.in_progress { border-color: var(--green-600); box-shadow: 0 0 0 2px rgba(35,131,104,.08); }
+.route-index { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 8px; background: var(--green-100); color: var(--green-800); font-size: 10px; font-weight: 800; }
+.route-topic div { display: grid; gap: 4px; }
+.route-topic small { color: var(--green-600); font-size: 8px; font-weight: 800; }
+.route-topic strong { font-size: 12px; }
+.route-topic p { margin: 0; color: var(--ink-muted); font-size: 10px; line-height: 1.4; }
+.route-topic b { color: var(--green-600); font-size: 11px; }
+.student-objective.locked { opacity: .58; }
+.diagnosis-card { margin: 20px 0; padding: 17px; border-left: 4px solid #e3a948; border-radius: 0 12px 12px 0; background: #fff7e9; display: grid; gap: 6px; }
+.diagnosis-card small { color: #9a651b; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.diagnosis-card strong { font-size: 13px; }
+.diagnosis-card p { margin: 0; color: var(--ink-muted); font-size: 11px; }
+.dimension-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 18px 0 24px; }
+.dimension-grid > div { padding: 10px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 5px; }
+.dimension-grid span { overflow: hidden; color: var(--ink-muted); font-size: 8px; text-transform: capitalize; }
+.dimension-grid strong { font-size: 14px; }
+.dimension-grid i { height: 3px; background: #dfe6df; border-radius: 3px; overflow: hidden; }
+.dimension-grid i b { display: block; height: 100%; background: var(--green-600); }
+.retrieval-page { max-width: 900px; margin: 0 auto; padding: 50px 30px 100px; }
+.retrieval-card { margin-top: 35px; padding: clamp(30px, 6vw, 60px); background: var(--paper); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 25px 70px rgba(38,61,51,.08); }
+.retrieval-card h1 { font-family: "Fraunces", serif; font-size: clamp(38px, 6vw, 58px); margin: 14px 0; }
+.retrieval-card > p { color: var(--ink-muted); font-size: 16px; line-height: 1.65; }
+.retrieval-card textarea { width: 100%; margin: 20px 0; padding: 18px; border: 1px solid var(--line); border-radius: 13px; resize: vertical; color: var(--green-950); background: #fbfbf7; font: inherit; line-height: 1.6; }
+.retrieval-card > div { display: flex; justify-content: space-between; gap: 24px; align-items: center; }
+.retrieval-card small { max-width: 480px; color: var(--ink-muted); line-height: 1.5; }
+.process-ribbon { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 28px; }
+.process-ribbon > div { display: grid; gap: 4px; padding: 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); }
+.process-ribbon > div.active { border-color: var(--green-600); background: #edf5ef; }
+.process-ribbon span { color: var(--green-600); font-size: 9px; font-weight: 800; }
+.process-ribbon strong { font-size: 12px; }
+.process-ribbon small { color: var(--ink-muted); font-size: 9px; line-height: 1.4; }
+.recall-note { margin-top: 18px; padding: 16px 20px; border-left: 4px solid var(--lime); background: #f2f4e5; border-radius: 0 12px 12px 0; }
+.recall-note small { color: #6c7625; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.recall-note p { margin: 8px 0 0; color: #4d5d55; font-size: 12px; }
+
 @media (max-width: 850px) {
+  .learning-process { grid-template-columns: 1fr; }
+  .route-topics { grid-template-columns: 1fr; }
+  .process-ribbon { grid-template-columns: 1fr; }
+  .dimension-grid { grid-template-columns: repeat(2, 1fr); }
+  .retrieval-card > div { align-items: stretch; flex-direction: column; }
   .guide-layout { grid-template-columns: 1fr; }
   .guide-sidebar { position: static; }
   .today-plan { grid-template-columns: 1fr; }

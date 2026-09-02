@@ -93,11 +93,26 @@ export class LearningEngine {
       newRetention = Math.max(0, newRetention - 0.2);
     }
 
+    const updateDimension = (current: number, signal: number, rate = 0.18) =>
+      Math.max(0, Math.min(1, current + rate * (signal - current)));
+    const evidenceBacked = "evidenceSnapshots" in attempt && attempt.evidenceSnapshots.length > 0;
+    const applicationSignal = difficulty >= 0.6 ? score : Math.max(0, score * 0.75);
+    const newRecall = updateDimension(currentState.recall, score);
+    const newComprehension = updateDimension(currentState.comprehension, score * (0.8 + difficulty * 0.2));
+    const newApplication = updateDimension(currentState.application, applicationSignal, 0.14);
+    const newSourceAwareness = updateDimension(currentState.sourceAwareness, evidenceBacked ? score : 0, 0.12);
+    const newStability = updateDimension(currentState.stability, isCorrect ? newRetention : 0, 0.12);
+
     const newState: MasteryState = {
       ...currentState,
       mastery: newMastery,
       confidence: newSystemConfidence,
       retention: newRetention,
+      recall: newRecall,
+      comprehension: newComprehension,
+      application: newApplication,
+      sourceAwareness: newSourceAwareness,
+      stability: newStability,
       totalAttempts: currentState.totalAttempts + 1,
       correctAttempts: isCorrect ? currentState.correctAttempts + 1 : currentState.correctAttempts,
       consecutiveCorrect,
@@ -123,6 +138,11 @@ export class LearningEngine {
       mastery: 0,
       confidence: 0,
       retention: 0,
+      recall: 0,
+      comprehension: 0,
+      application: 0,
+      sourceAwareness: 0,
+      stability: 0,
       totalAttempts: 0,
       correctAttempts: 0,
       consecutiveCorrect: 0,

@@ -30,7 +30,7 @@ integration("study flow AC-001/002/003", () => {
     });
     const result = await startStudySession({ studentId, competencyId: "competency-cobro-coactivo" });
     sessionId = result.session.id;
-    expect(result.competency.topics[0]?.learningObjectives[0]?.id).toBe("objective-alcance-art-823");
+    expect(result.competency.blocks[0]?.topics[0]?.learningObjectives[0]?.id).toBe("objective-alcance-art-823");
   });
 
   it("authenticates with a derived password and stores only a token hash", async () => {
@@ -104,7 +104,7 @@ integration("study flow AC-001/002/003", () => {
     expect(result.attempt.confidence).toBe(0);
     expect(result.attempt.difficulty).toBe(0.3);
     expect(result.evidence).toHaveLength(1);
-    expect(result.mistakes[0]?.type).toBe("incorrect_answer");
+    expect(result.mistakes[0]?.type).toBe("UNKNOWN_CONCEPT");
 
     const [mastery, review] = await Promise.all([
       prisma.masteryState.findUnique({ where: { studentId_objectiveId: { studentId, objectiveId: "objective-alcance-art-823" } } }),
@@ -125,6 +125,7 @@ integration("study flow AC-001/002/003", () => {
     const dashboard = await getStudentDashboard(studentId);
     expect(dashboard.objectives[0]?.totalAttempts).toBe(1);
     expect(dashboard.objectives).toHaveLength(4);
+    expect(dashboard.route[0]?.topics).toHaveLength(3);
     expect(dashboard.recommendedObjective?.questionCount).toBeGreaterThan(0);
     expect(dashboard.recentSessions).toHaveLength(1);
   });
