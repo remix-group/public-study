@@ -4,23 +4,42 @@ MVP de aprendizaje adaptativo para practicar una OPEC de la DIAN. El vertical ac
 
 ## Requisitos
 
-- Node.js 20+
-- pnpm
-- Docker con Compose
+- Docker Engine
+- Docker Compose v2
 
-## Ejecución local
+Node.js y pnpm no son necesarios en la máquina para ejecutar la plataforma. Las versiones estándar están fijadas en el contenedor (`Node.js 24.20.0` y `pnpm 11.23.0`).
+
+## Ejecución con Docker
 
 ```bash
-cp .env.example .env
-docker compose up -d postgres
-pnpm install
-pnpm --filter @dian-study/infrastructure db:generate
-pnpm --filter @dian-study/infrastructure db:migrate:deploy
-pnpm --filter @dian-study/infrastructure db:seed
-pnpm dev
+docker compose up --build
 ```
 
-La interfaz queda disponible en `http://localhost:5173` y la API en `http://localhost:3000`. El seed carga 10 preguntas controladas sobre los artículos 823, 826, 828 y 837 del Estatuto Tributario.
+Compose inicia PostgreSQL, aplica las migraciones, carga el seed, inicia la API y sirve la interfaz. La aplicación queda disponible en `http://localhost:5173`; las solicitudes `/api` se resuelven internamente mediante Nginx. El seed carga 10 preguntas controladas sobre los artículos 823, 826, 828 y 837 del Estatuto Tributario.
+
+Para ejecutar en segundo plano o consultar el estado:
+
+```bash
+docker compose up --build -d
+docker compose ps
+docker compose logs -f api web
+```
+
+Para detener el entorno conservando la base de datos y las fuentes cargadas:
+
+```bash
+docker compose down
+```
+
+La generación automática con OpenAI es opcional. Si se utiliza, define `OPENAI_API_KEY` en un archivo `.env` local; ese archivo está excluido de Git.
+
+## Herramientas locales opcionales
+
+Quienes necesiten ejecutar comandos fuera de Docker deben usar las versiones declaradas en `.node-version` y `packageManager`, e instalar siempre desde el lockfile:
+
+```bash
+pnpm install --frozen-lockfile
+```
 
 Cuenta de demostración:
 
@@ -64,6 +83,12 @@ Content-Type: application/json
 pnpm test
 pnpm lint
 pnpm build
+```
+
+La compilación de producción también se ejecuta durante la construcción reproducible de la imagen. Para validar exclusivamente la construcción de contenedores:
+
+```bash
+docker compose build
 ```
 
 Con `DATABASE_URL` configurada, la suite de API ejecuta además la prueba de integración AC-001/002/003 contra PostgreSQL. Sin esa variable, esa prueba se omite.

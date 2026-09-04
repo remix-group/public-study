@@ -6,7 +6,10 @@ import { readSessionCookie, requireAuth, SESSION_COOKIE } from "../auth/middlewa
 export const authRouter: ExpressRouter = Router();
 const credentialsSchema = z.object({ email: z.string().email(), password: z.string().min(10).max(128) });
 const registerSchema = credentialsSchema.extend({ name: z.string().trim().min(2).max(80) });
-const cookieOptions = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
+const secureCookie = process.env.COOKIE_SECURE
+  ? process.env.COOKIE_SECURE === "true"
+  : process.env.NODE_ENV === "production";
+const cookieOptions = { httpOnly: true, sameSite: "lax" as const, secure: secureCookie, path: "/" };
 
 authRouter.post("/register", async (req, res, next) => {
   try {

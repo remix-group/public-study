@@ -1,5 +1,7 @@
 # MVP Architecture
 
+El entorno estándar se ejecuta completamente con Docker Compose. PostgreSQL, migraciones, API y web se aíslan en servicios; Nginx sirve el frontend y actúa como proxy para `/api`. Las versiones de Node.js, pnpm, PostgreSQL y Nginx se fijan en la configuración de contenedores conforme a ADR-010.
+
 La arquitectura inicial está diseñada para ser sencilla, operable y orientada a validar el modelo de dominio. Se evita deliberadamente la sobre-ingeniería temprana.
 
 ## Diseño General

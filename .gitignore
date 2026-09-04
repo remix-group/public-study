@@ -13,5 +13,11 @@ coverage/
 .vscode/
 .agent/
 .codex/
+!.codex/
+!.codex/skills/
+!.codex/skills/entorno-dependencias/
+!.codex/skills/entorno-dependencias/**
+!.codex/skills/flujo-git-equipo/
+!.codex/skills/flujo-git-equipo/**
 .opencode/
 data/legal-sources/

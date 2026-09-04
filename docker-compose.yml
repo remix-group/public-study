@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17.11-alpine3.24
+    restart: unless-stopped
     environment:
       POSTGRES_USER: dian
       POSTGRES_PASSWORD: dian
@@ -15,5 +16,72 @@ services:
     volumes:
       - dian_postgres_data:/var/lib/postgresql/data
 
+  migrate:
+    image: dian-study-api:local
+    build:
+      context: .
+      target: api
+      args:
+        NODE_IMAGE: node:24.20.0-bookworm-slim
+        PNPM_VERSION: 11.23.0
+    environment:
+      DATABASE_URL: postgresql://dian:dian@postgres:5432/dian_study?schema=public
+    command: ["sh", "-c", "pnpm --filter @dian-study/infrastructure db:migrate:deploy && pnpm --filter @dian-study/infrastructure db:seed"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: dian-study-api:local
+    build:
+      context: .
+      target: api
+      args:
+        NODE_IMAGE: node:24.20.0-bookworm-slim
+        PNPM_VERSION: 11.23.0
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://dian:dian@postgres:5432/dian_study?schema=public
+      PORT: 3000
+      NODE_ENV: production
+      COOKIE_SECURE: "false"
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4}
+      LEGAL_STORAGE_PATH: /app/apps/api/data/legal-sources
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - dian_legal_sources:/app/apps/api/data/legal-sources
+
+  web:
+    image: dian-study-web:local
+    build:
+      context: .
+      target: web
+      args:
+        NODE_IMAGE: node:24.20.0-bookworm-slim
+        NGINX_IMAGE: nginx:1.30.4-alpine3.24-slim
+        PNPM_VERSION: 11.23.0
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   dian_postgres_data:
+  dian_legal_sources:
