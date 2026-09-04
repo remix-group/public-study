@@ -1,0 +1,4 @@
+interface:
+  display_name: Flujo Git del equipo
+  short_description: Aplica el flujo main y ramas de desarrollo
+  default_prompt: Usa $flujo-git-equipo para organizar este cambio según el flujo Git del equipo.

@@ -1,0 +1,4 @@
+interface:
+  display_name: Entorno y dependencias
+  short_description: Verifica versiones y dependencias compartidas
+  default_prompt: Usa $entorno-dependencias para preparar o verificar el entorno del proyecto.
