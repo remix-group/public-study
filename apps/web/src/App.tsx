@@ -6,8 +6,9 @@ import { AuthScreen } from "./AuthScreen";
 import { EditorPanel } from "./EditorPanel";
 import { KnowledgePanel } from "./KnowledgePanel";
 import { GuidedStudy } from "./GuidedStudy";
+import { TopicKnowledgeMap } from "./TopicKnowledgeMap";
 
-type Screen = "checking" | "auth" | "welcome" | "guide" | "loading" | "question" | "feedback" | "summary" | "editor" | "knowledge" | "empty";
+type Screen = "checking" | "auth" | "welcome" | "guide" | "map" | "loading" | "question" | "feedback" | "summary" | "editor" | "knowledge" | "empty";
 
 function Brand() {
   return (
@@ -45,10 +46,15 @@ export function App() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [focusObjectiveId, setFocusObjectiveId] = useState<string | undefined>();
   const [guideObjectiveId, setGuideObjectiveId] = useState<string | undefined>();
+  const [mapTopicId, setMapTopicId] = useState<string | undefined>();
 
   function openGuide(objectiveId?: string) {
     if (!objectiveId) { begin(); return; }
     setGuideObjectiveId(objectiveId); setScreen("guide");
+  }
+
+  function openMap(topicId: string) {
+    setMapTopicId(topicId); setScreen("map");
   }
 
   useEffect(() => {
@@ -143,6 +149,7 @@ export function App() {
       {screen === "editor" && <EditorPanel onClose={() => setScreen("welcome")}/>}
       {screen === "knowledge" && <KnowledgePanel onClose={() => setScreen("welcome")}/>}
       {screen === "guide" && guideObjectiveId && <GuidedStudy objectiveId={guideObjectiveId} onBack={() => setScreen("welcome")} onPractice={() => begin(guideObjectiveId, "PRACTICE")}/>}
+      {screen === "map" && mapTopicId && <TopicKnowledgeMap topicId={mapTopicId} onBack={() => setScreen("welcome")}/>}
 
       {screen === "welcome" && (
         <main className="student-home">
@@ -154,7 +161,7 @@ export function App() {
             <div className="plan-score"><small>Dominio del objetivo</small><strong>{masteryPercent(dashboard?.recommendedObjective?.mastery ?? 0)}%</strong><div><span style={{ width: `${masteryPercent(dashboard?.recommendedObjective?.mastery ?? 0)}%` }}/></div><p>{dashboard?.pendingReviews.some((review) => review.due) ? "Tienes un repaso pendiente para hoy." : "La ruta se ajusta después de cada respuesta."}</p></div>
           </section>
           <section className="student-metrics"><article><small>Dominio acumulado</small><strong>{masteryPercent(dashboard?.overallMastery ?? 0)}%</strong></article><article><small>Objetivos practicados</small><strong>{dashboard?.objectives.filter((item) => item.totalAttempts > 0).length ?? 0}<span>/{dashboard?.objectives.length ?? 0}</span></strong></article><article><small>Repasos pendientes</small><strong>{dashboard?.pendingReviews.filter((item) => item.due).length ?? 0}</strong></article><article><small>Sesiones completadas</small><strong>{dashboard?.recentSessions.length ?? 0}</strong></article></section>
-          <section className="learning-path"><div className="section-heading"><div><span className="eyebrow">Ruta de aprendizaje</span><h2>Avanza en orden, vuelve cuando quieras</h2></div><button className="text-button" onClick={() => begin()}>Práctica mixta →</button></div><div className="route-board">{dashboard?.route.map((block) => <article key={block.id}><header><div><small>{block.profile} · {block.competency}</small><h3>{block.name}</h3><p>{block.description}</p></div><span>Umbral {Math.round(block.threshold * 100)}%</span></header><div className="route-topics">{block.topics.map((topic) => <div className={`route-topic ${topic.state.toLowerCase()}`} key={topic.id}><span className="route-index">{topic.accessible ? topic.state === "COMPLETED" || topic.state === "MASTERED" ? "✓" : topic.order : "🔒"}</span><div><small>{topic.state.replace("_", " ")}</small><strong>{topic.name}</strong><p>{topic.description}</p></div><b>{masteryPercent(topic.mastery)}%</b></div>)}</div></article>)}</div><div className="objective-grid">{dashboard?.objectives.map((item, index) => <article className={`student-objective ${!item.accessible ? "locked" : ""}`} key={item.objectiveId}><div className="objective-top"><span>{String(index + 1).padStart(2, "0")}</span><span className={item.curriculumState === "IN_PROGRESS" ? "objective-status active" : "objective-status"}>{item.curriculumState.replace("_", " ")}</span></div><small>{item.block} · {item.topic}</small><h3>{item.objective}</h3><p>{item.description}</p><div className="objective-progress"><div><span style={{ width: `${masteryPercent(item.mastery)}%` }}/></div><strong>{masteryPercent(item.mastery)}%</strong></div><footer><span>{item.questionCount} preguntas</span><button disabled={!item.questionCount || !item.accessible} onClick={() => openGuide(item.objectiveId)}>{item.accessible ? "Estudiar →" : "Bloqueado"}</button></footer></article>)}</div></section>
+          <section className="learning-path"><div className="section-heading"><div><span className="eyebrow">Ruta de aprendizaje</span><h2>Avanza en orden, vuelve cuando quieras</h2></div><button className="text-button" onClick={() => begin()}>Práctica mixta →</button></div><div className="route-board">{dashboard?.route.map((block) => <article key={block.id}><header><div><small>{block.profile} · {block.competency}</small><h3>{block.name}</h3><p>{block.description}</p></div><span>Umbral {Math.round(block.threshold * 100)}%</span></header><div className="route-topics">{block.topics.map((topic) => <article className={`route-topic ${topic.state.toLowerCase()}`} key={topic.id}><span className="route-index">{topic.accessible ? topic.state === "COMPLETED" || topic.state === "MASTERED" ? "✓" : topic.order : "🔒"}</span><div><small>{topic.state.replace("_", " ")}</small><strong>{topic.name}</strong><p>{topic.description}</p><button onClick={() => openMap(topic.id)}>Ver mapa jurídico →</button></div><b>{masteryPercent(topic.mastery)}%</b></article>)}</div></article>)}</div><div className="objective-grid">{dashboard?.objectives.map((item, index) => <article className={`student-objective ${!item.accessible ? "locked" : ""}`} key={item.objectiveId}><div className="objective-top"><span>{String(index + 1).padStart(2, "0")}</span><span className={item.curriculumState === "IN_PROGRESS" ? "objective-status active" : "objective-status"}>{item.curriculumState.replace("_", " ")}</span></div><small>{item.block} · {item.topic}</small><h3>{item.objective}</h3><p>{item.description}</p><div className="objective-progress"><div><span style={{ width: `${masteryPercent(item.mastery)}%` }}/></div><strong>{masteryPercent(item.mastery)}%</strong></div><footer><span>{item.questionCount} preguntas</span><button disabled={!item.questionCount || !item.accessible} onClick={() => openGuide(item.objectiveId)}>{item.accessible ? "Estudiar →" : "Bloqueado"}</button></footer></article>)}</div></section>
           <section className="student-trust"><Icon name="shield"/><div><strong>Estudias con respaldo normativo</strong><p>Cada explicación muestra el artículo exacto que sustenta la respuesta. Tu progreso se usa para escoger el siguiente repaso.</p></div></section>
         </main>
       )}

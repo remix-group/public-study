@@ -70,6 +70,15 @@ async function main() {
     where: { id: "evidence-et-823-scope" }, update: {},
     create: { id: "evidence-et-823-scope", provisionId: provision.id, citation: "Estatuto Tributario, artículo 823", content: provision.content },
   });
+  const scopeConcept = await prisma.concept.upsert({
+    where: { id: "concept-deudas-fiscales-cobro" },
+    update: { objectiveId: objective.id },
+    create: { id: "concept-deudas-fiscales-cobro", objectiveId: objective.id, name: "Deudas fiscales sujetas a cobro", description: "Impuestos, anticipos, retenciones, intereses y sanciones de competencia de la DIAN." },
+  });
+  await prisma.conceptEvidence.upsert({
+    where: { conceptId_evidenceId: { conceptId: scopeConcept.id, evidenceId: evidence.id } }, update: {},
+    create: { conceptId: scopeConcept.id, evidenceId: evidence.id },
+  });
   const question = await prisma.question.upsert({
     where: { id: "question-et-823-1" }, update: { errorType: "CONCEPT_CONFUSION" },
     create: {
@@ -96,6 +105,7 @@ async function main() {
     {
       provision: { id: "provision-et-826", number: "Artículo 826", title: "Mandamiento de pago", content: "El funcionario competente producirá el mandamiento de pago ordenando cancelar las obligaciones pendientes y sus intereses. Se citará al deudor para notificación personal dentro de diez días; si no comparece, se notificará por correo." },
       objective: { id: "objective-mandamiento-pago", name: "Comprender el mandamiento de pago", description: "Identificar su contenido y reglas básicas de notificación", order: 2 },
+      concept: { id: "concept-mandamiento-notificacion", name: "Mandamiento y notificación", description: "Orden de pago, citación para notificación personal y notificación subsidiaria por correo." },
       topicId: notificationTopic.id,
       errorType: "PROCEDURE_ORDER_ERROR",
       questions: [
@@ -108,6 +118,7 @@ async function main() {
     {
       provision: { id: "provision-et-828", number: "Artículo 828", title: "Títulos ejecutivos", content: "Prestan mérito ejecutivo las liquidaciones privadas y sus correcciones desde el vencimiento para pagar, las liquidaciones oficiales ejecutoriadas, otros actos ejecutoriados que fijen sumas líquidas a favor del fisco, determinadas garantías y cauciones, y decisiones jurisdiccionales ejecutoriadas." },
       objective: { id: "objective-titulos-ejecutivos", name: "Reconocer los títulos ejecutivos", description: "Distinguir los documentos que prestan mérito ejecutivo", order: 3 },
+      concept: { id: "concept-merito-ejecutivo", name: "Mérito ejecutivo", description: "Aptitud jurídica del documento para permitir el cobro de una obligación exigible." },
       topicId: topic.id,
       errorType: "CONCEPT_CONFUSION",
       questions: [
@@ -120,6 +131,7 @@ async function main() {
     {
       provision: { id: "provision-et-837", number: "Artículo 837", title: "Medidas preventivas", content: "Previa o simultáneamente con el mandamiento de pago, el funcionario podrá decretar el embargo y secuestro preventivo de bienes que se hayan establecido como propiedad del deudor." },
       objective: { id: "objective-medidas-preventivas", name: "Aplicar las medidas preventivas", description: "Reconocer oportunidad y alcance del embargo y secuestro", order: 4 },
+      concept: { id: "concept-medidas-preventivas", name: "Embargo y secuestro preventivo", description: "Medidas sobre bienes del deudor que pueden decretarse antes o junto al mandamiento de pago." },
       topicId: measuresTopic.id,
       errorType: "MISSED_EXCEPTION",
       questions: [
@@ -144,6 +156,14 @@ async function main() {
       where: { id: `evidence-${item.provision.id}` }, update: {},
       create: { id: `evidence-${item.provision.id}`, provisionId: itemProvision.id, citation: `Estatuto Tributario, ${item.provision.number.toLowerCase()}`, content: itemProvision.content },
     });
+    const itemConcept = await prisma.concept.upsert({
+      where: { id: item.concept.id }, update: { objectiveId: itemObjective.id, name: item.concept.name, description: item.concept.description },
+      create: { ...item.concept, objectiveId: itemObjective.id },
+    });
+    await prisma.conceptEvidence.upsert({
+      where: { conceptId_evidenceId: { conceptId: itemConcept.id, evidenceId: itemEvidence.id } }, update: {},
+      create: { conceptId: itemConcept.id, evidenceId: itemEvidence.id },
+    });
     for (const itemQuestion of item.questions) {
       const created = await prisma.question.upsert({
         where: { id: itemQuestion.id }, update: { errorType: item.errorType },
@@ -155,6 +175,14 @@ async function main() {
       });
     }
   }
+  await prisma.legalRelation.upsert({
+    where: { id: "relation-et-837-references-et-826" },
+    update: { description: "El artículo 837 sitúa el embargo y el secuestro preventivo antes o simultáneamente con el mandamiento de pago regulado por el artículo 826." },
+    create: {
+      id: "relation-et-837-references-et-826", sourceProvisionId: "provision-et-837", targetProvisionId: "provision-et-826", type: "REFERENCES",
+      description: "El artículo 837 sitúa el embargo y el secuestro preventivo antes o simultáneamente con el mandamiento de pago regulado por el artículo 826.",
+    },
+  });
   for (const [index, itemTopic] of [topic, notificationTopic, measuresTopic].entries()) {
     await prisma.topicProgress.upsert({
       where: { studentId_topicId: { studentId: student.id, topicId: itemTopic.id } },

@@ -32,6 +32,8 @@ OPEC / JobProfile
           LegalDocument
 ```
 
+Para exploración, la plataforma deriva un `TopicKnowledgeGraph` de estas relaciones. La proyección conecta tema, objetivos, conceptos, disposiciones y documentos, e incorpora relaciones jurídicas de un salto. No duplica entidades ni sustituye la jerarquía curricular.
+
 ## Modelo de Interacción del Estudiante
 
 El ciclo de vida de la práctica y la evaluación del dominio se modela de la siguiente manera:

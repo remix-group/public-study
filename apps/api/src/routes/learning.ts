@@ -4,6 +4,7 @@ import {
   QuestionPrismaRepository,
 } from "@dian-study/infrastructure";
 import { getObjectiveStudyGuide, getStudentDashboard } from "../application/study-session-progress.js";
+import { getTopicKnowledgeGraph } from "../application/topic-knowledge-graph.js";
 import { AttemptNotFoundError } from "../application/submit-question-attempt.js";
 import { requireAuth } from "../auth/middleware.js";
 
@@ -25,6 +26,15 @@ learningRouter.get("/topics/:topicId/objectives", async (req, res) => {
   } catch (error) {
     console.error("Failed to fetch objectives:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+learningRouter.get("/topics/:topicId/graph", async (req, res, next) => {
+  try {
+    res.json(await getTopicKnowledgeGraph(req.params.topicId));
+  } catch (error) {
+    if (error instanceof AttemptNotFoundError) return res.status(404).json({ error: error.message });
+    next(error);
   }
 });
 

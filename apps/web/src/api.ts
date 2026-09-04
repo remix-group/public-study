@@ -1,4 +1,4 @@
-import type { AttemptResponse, AuthStudent, Dashboard, EditorialCatalog, EditorialQuestion, EditorialQuestionInput, KnowledgeCatalog, LegalDocumentView, LegalUnitView, LegalVersionView, NextQuestionResponse, SessionStartResponse, SessionSummary, StudyGuide } from "./types";
+import type { AttemptResponse, AuthStudent, Dashboard, EditorialCatalog, EditorialQuestion, EditorialQuestionInput, KnowledgeCatalog, LegalDocumentView, LegalUnitView, LegalVersionView, NextQuestionResponse, SessionStartResponse, SessionSummary, StudyGuide, TopicKnowledgeGraph } from "./types";
 
 const COMPETENCY_ID = "competency-cobro-coactivo";
 
@@ -51,6 +51,7 @@ export function getDashboard() {
   return request<Dashboard>("/api/learning/dashboard");
 }
 export function getStudyGuide(objectiveId: string) { return request<StudyGuide>(`/api/learning/objectives/${objectiveId}/guide`); }
+export function getTopicKnowledgeGraph(topicId: string) { return request<TopicKnowledgeGraph>(`/api/learning/topics/${topicId}/graph`); }
 
 export function getCurrentStudent() { return request<{ student: AuthStudent }>("/api/auth/me"); }
 export function login(email: string, password: string) {
