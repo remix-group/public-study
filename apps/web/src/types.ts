@@ -85,6 +85,20 @@ export interface StudyGuide {
   evidences: Array<{ id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string; documentTitle: string; officialUrl: string }>;
   questionCount: number;
 }
+export type KnowledgeGraphNodeKind = "topic" | "objective" | "concept" | "provision" | "document";
+export interface KnowledgeGraphNode {
+  id: string; kind: KnowledgeGraphNodeKind; label: string; subtitle: string; description: string;
+  status?: string; citation?: string; content?: string; officialUrl?: string;
+}
+export interface KnowledgeGraphEdge {
+  id: string; source: string; target: string; type: string; label: string; description: string;
+}
+export interface TopicKnowledgeGraph {
+  topic: { id: string; name: string; description: string };
+  nodes: KnowledgeGraphNode[];
+  edges: KnowledgeGraphEdge[];
+  summary: { objectives: number; concepts: number; provisions: number; documents: number; legalRelations: number; directProvisions: number };
+}
 export interface AuthStudent { id: string; name: string; email: string; role: "student" | "editor" }
 export interface EditorialQuestion {
   id: string; objectiveId: string; stem: string; difficulty: number; options: QuestionOption[];

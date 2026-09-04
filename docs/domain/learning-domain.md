@@ -65,3 +65,9 @@ MasteryState
     ↓
 ReviewSchedule
 ```
+
+## Mapa jurídico del tema
+
+`TopicKnowledgeGraph` es un modelo de lectura derivado que permite explorar el contexto jurídico de un tema. No es una nueva entidad persistente: se construye desde `Topic`, `LearningObjective`, `Concept`, `Evidence`, `LegalProvision`, `LegalDocument` y `LegalRelation`.
+
+Solo expone disposiciones aprobadas y publicadas. Incluye las normas que respaldan directamente el aprendizaje y, como máximo, un salto de relaciones jurídicas tipificadas para mantener el mapa comprensible.
