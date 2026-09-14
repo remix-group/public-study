@@ -175,6 +175,10 @@ button { cursor: pointer; }
 .guide-evidence a { color: var(--green-600); font-size: 10px; white-space: nowrap; }
 .guide-evidence blockquote { margin: 0; padding: 23px; color: #3e514a; font-family: Georgia, serif; font-size: 15px; line-height: 1.75; }
 .guide-evidence footer { padding: 11px 20px; border-top: 1px solid var(--line); color: var(--ink-muted); font-size: 9px; }
+.guide-evidence.pending { border-color: #d8c88e; }
+.guide-evidence.pending header { background: #f7f1dc; }
+.source-actions { display: grid; justify-items: end; gap: 5px; }
+.source-actions span { color: #866f25; font-size: 8px; font-weight: 800; text-transform: uppercase; }
 .guide-ready { display: flex; justify-content: space-between; gap: 30px; align-items: center; padding: 25px; background: #e8f0e7; border-radius: 17px; }
 .guide-ready small { color: var(--green-600); text-transform: uppercase; font-size: 9px; font-weight: 800; }
 .guide-ready p { color: var(--ink-muted); font-size: 12px; margin: 0; }
@@ -373,6 +377,44 @@ button { cursor: pointer; }
 .route-topic p { margin: 0; color: var(--ink-muted); font-size: 10px; line-height: 1.4; }
 .route-topic b { color: var(--green-600); font-size: 11px; }
 .route-topic div > button { width: fit-content; margin-top: 5px; padding: 0; border: 0; background: transparent; color: var(--green-600); font-size: 9px; font-weight: 800; }
+.route-topic-actions { display: flex !important; flex-wrap: wrap; gap: 10px !important; }
+.route-topic-actions button { width: fit-content; padding: 0; border: 0; background: transparent; color: var(--green-600); font-size: 9px; font-weight: 800; }
+
+.library-page { max-width: 1440px; margin: 0 auto; padding: 48px 32px 90px; }
+.library-header { display: flex; justify-content: space-between; gap: 35px; align-items: end; margin-bottom: 28px; }
+.library-header h1 { margin: 9px 0; font-family: "Fraunces", serif; font-size: clamp(34px, 5vw, 55px); }
+.library-header p { color: var(--ink-muted); margin: 0; }
+.library-layout { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 18px; align-items: start; }
+.library-documents { max-height: calc(100vh - 150px); overflow: auto; position: sticky; top: 24px; background: #e8eee6; border-radius: 17px; padding: 14px; }
+.library-documents > div { display: grid; gap: 4px; padding: 8px 8px 15px; }
+.library-documents > div small { color: var(--ink-muted); }
+.library-documents > button { display: grid; gap: 5px; width: 100%; padding: 13px; text-align: left; border: 1px solid transparent; border-radius: 11px; background: transparent; color: var(--green-950); }
+.library-documents > button:hover, .library-documents > button.active { background: var(--paper); border-color: var(--line); }
+.library-documents > button span { color: var(--green-600); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.library-documents > button strong { font-size: 11px; line-height: 1.35; }
+.library-documents > button small { color: var(--ink-muted); font-size: 8px; }
+.library-content { min-width: 0; display: grid; gap: 18px; }
+.library-document-heading, .library-search, .library-units article { background: var(--paper); border: 1px solid var(--line); border-radius: 15px; }
+.library-document-heading { display: flex; justify-content: space-between; gap: 20px; padding: 22px; }
+.library-document-heading span { color: #866f25; font-size: 8px; font-weight: 800; }
+.library-document-heading h2 { margin: 6px 0; font-family: "Fraunces", serif; font-size: 26px; }
+.library-document-heading p { color: var(--ink-muted); margin: 0; font-size: 11px; }
+.library-document-heading code { height: fit-content; color: var(--ink-muted); font-size: 9px; }
+.library-search { display: grid; gap: 8px; padding: 17px; }
+.library-search label { color: var(--ink-muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.library-search > div { display: flex; gap: 8px; }
+.library-search input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 9px; padding: 11px; }
+.library-units { display: grid; gap: 10px; }
+.library-units article { overflow: hidden; }
+.library-units article header { display: flex; justify-content: space-between; gap: 20px; padding: 16px 18px; background: #edf3ec; }
+.library-units article header span, .library-units article header small { color: var(--green-600); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.library-units article header small { color: #866f25; white-space: nowrap; }
+.library-units h3 { margin: 5px 0 0; font-family: "Fraunces", serif; font-size: 18px; }
+.library-units pre { margin: 0; padding: 18px; white-space: pre-wrap; overflow-wrap: anywhere; color: #3e514a; font: 13px/1.7 Georgia, serif; max-height: 520px; overflow: auto; }
+.library-units footer { padding: 10px 18px; border-top: 1px solid var(--line); color: var(--ink-muted); font-size: 9px; }
+.library-loading, .empty-library { display: grid; justify-items: center; padding: 45px; color: var(--ink-muted); }
+.library-pagination { display: flex; justify-content: space-between; align-items: center; gap: 15px; color: var(--ink-muted); font-size: 10px; }
+.library-pagination button { border: 1px solid var(--line); border-radius: 8px; background: var(--paper); padding: 9px 12px; color: var(--green-600); font-weight: 800; }
 .student-objective.locked { opacity: .58; }
 .diagnosis-card { margin: 20px 0; padding: 17px; border-left: 4px solid #e3a948; border-radius: 0 12px 12px 0; background: #fff7e9; display: grid; gap: 6px; }
 .diagnosis-card small { color: #9a651b; font-size: 9px; font-weight: 800; text-transform: uppercase; }
@@ -464,6 +506,8 @@ button { cursor: pointer; }
   .guide-layout { grid-template-columns: 1fr; }
   .guide-sidebar { position: static; }
   .knowledge-map-layout { grid-template-columns: 1fr; }
+  .library-layout { grid-template-columns: 1fr; }
+  .library-documents { position: static; max-height: 380px; }
   .graph-detail { position: static; }
   .knowledge-map-header { align-items: flex-start; flex-direction: column; }
   .today-plan { grid-template-columns: 1fr; }
@@ -522,6 +566,9 @@ button { cursor: pointer; }
   .summary-stats { grid-template-columns: 1fr; }
   .editor-page { padding: 35px 20px; }
   .knowledge-page { padding: 35px 20px; }
+  .library-page { padding: 30px 20px 70px; }
+  .library-header { align-items: flex-start; flex-direction: column; }
+  .library-document-heading { display: grid; }
   .editor-header { display: block; }
   .account-actions { gap: 7px; }
   .editor-link { font-size: 9px; }

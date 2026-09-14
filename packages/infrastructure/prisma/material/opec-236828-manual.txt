@@ -1,0 +1,421 @@
+             LISTADO DE TEMAS Y DOCUMENTOS
+
+Instrucciones: Debes elegir una sola de las opciones de cada tema. Si por alguna razón
+alguno de los links no funciona, selecciona la otra opción.
+
+
+                   Consejos para estudiar esta OPEC
+
+El enfoque principal que debes tener es en las pruebas básicas y funcionales, ya que
+estas pruebas son eliminatorias y si no sacas el puntaje mínimo aprobatorio
+automáticamente quedas por fuera del concurso. Mi recomendación es que destines un
+tiempo diario de estudio desde este momento hasta la presentación de las pruebas escritas,
+y que distribuyas tu tiempo de estudio de la siguiente forma:
+
+   -​   25% del tiempo para las competencias básicas
+   -​   65% del tiempo para las competencias funcionales
+   -​   10% del tiempo para las competencias comportamentales e integridad
+
+Por ejemplo, si estudias 1 hora diaria, podrías dedicar 15 minutos a las competencias
+básicas, 39 minutos a las funcionales y 6 minutos a las comportamentales e
+integridad. Recuerda que es más importante ser constante todos los días y no intentar
+abarcar todos los temas en un solo día, entonces es mejor que intentes estudiar por lo
+menos 1 hora diaria en lugar de estudiar 7 horas en un fin de semana.
+
+También es muy importante mejorar la capacidad y comprensión de lectura. Esto lo
+puedes realizar leyendo diariamente textos de diferentes temáticas de tu interés, lo cual
+fortalece gradualmente esta habilidad y facilita el entendimiento del contexto y las preguntas
+en los exámenes escritos.
+               Consejos para Estudiar Esta OPEC
+
+
+De acuerdo con el análisis de los ejes temáticos, tu perfil está fuertemente orientado a la
+gestión de recaudo y fiscalización dentro de la DIAN. Los cinco temas más importantes que
+debes priorizar son: Sistema Tributario y Teoría de la Imposición, pues es la base técnica
+de tu labor; Estatuto Tributario (Procedimiento Tributario), ya que regula cómo la entidad
+interactúa con el contribuyente; Cobro Coactivo y Persuasivo, debido a la gran cantidad
+de subtemas relacionados con la recuperación de cartera que aparecen en tu lista; Sistema
+Aduanero y Cambiario, por ser un pilar misional complejo y extenso; y el CPACA, que es
+la norma transversal que garantiza el debido proceso en todas tus actuaciones
+administrativas.
+
+Para maximizar tu aprendizaje, organiza tu plan de estudio en una estructura piramidal
+lógica. Inicia revisando la Constitución Política y el CPACA para comprender los
+fundamentos legales del Estado. Una vez tengas esta base, dedica el 60% de tu tiempo a
+las Competencias Funcionales, comenzando por lo general (Sistema Tributario y
+Aduanero) y avanzando hacia lo específico (Procesos de Cobro, Devoluciones y
+Depuración de Cartera), ya que estos temas tendrán mayor peso en la prueba. Finaliza
+con los temas transversales como MIPG, Gestión Documental y Competencias
+Comportamentales. Aunque debes estudiar todo, este orden te permitirá conectar los
+conceptos jurídicos con la operación técnica real de la entidad.
+
+Para asegurar un buen desempeño en las pruebas escritas, recuerda que la metodología
+será de juicio situacional. No basta con memorizar los artículos del Estatuto Tributario o
+el Decreto 1165 de 2019, debes entender cómo aplicarlos para resolver casos hipotéticos
+donde un ciudadano o empresa incumple una obligación. Utiliza NotebookLM para cargar
+las leyes extensas, generar resúmenes y crear audios explicativos que puedas escuchar en
+tus tiempos libres. Practica identificando la norma aplicable y la solución procedimental
+correcta en cada escenario. Al enfrentarte a temas densos como el Régimen de
+Insolvencia, crea mapas mentales que visualicen los pasos del proceso para facilitar tu
+recordación durante el examen.
+                               Competencias Básicas
+
+Las competencias básicas son generales en todos los empleos y tienen que ver con temas
+transversales de la función pública, los temas principales que debes estudiar y conocer, son
+los siguientes:
+
+   -​   Constitución Política de Colombia: La constitución es un tema básico en todos los
+        concursos de méritos, no realizan preguntas específicas sobre este tema pero es
+        necesario conocer por lo menos los títulos 1 y 2, relacionados con los derechos
+        fundamentales.
+
+           -​     Constitución Política: Google Drive - Alcaldía Bogotá
+           -​     Estructura del Estado: Video Drive
+           -​     Principios Constitucionales: Video Drive
+           -​     Protección de DDHH: Video Drive
+           -​     Simulacros Constitución Política: Simulacro 1 - Simulacro 2
+
+
+   -​   Código del Procedimiento Administrativo y Contencioso Administrativo
+        CPACA: Regula la actuación de las entidades públicas y los procedimientos
+        administrativos en Colombia, garantizando principios como la eficacia, transparencia
+        y debido proceso. Establece las reglas para la presentación y resolución de
+        recursos, los derechos de los ciudadanos frente a la administración, y el acceso a la
+        justicia en asuntos contencioso-administrativos:
+
+
+           -​     Ley 1437 de 2011: Google Drive - Función Pública
+           -​     Procedimiento Administrativo: Vídeo Drive
+           -​     Simulacros CPACA: Simulacro 1 - Simulacro 2
+
+
+   -​   Derechos de Petición (Solicitudes PQRS): Este tema es muy frecuente en todos
+        los concursos de mérito, están reglamentados por la ley 1755 de 2015, la cual es
+        una ley muy sencilla y concisa, por lo cual es recomendable conocer esta ley
+        completamente y leerla antes de la presentación de las pruebas escritas:
+
+           -​     Ley 1755 de 2015: Google Drive - Función Pública
+           -​     Curso Derechos de Petición: Video Drive
+           -​     Simulacros Derechos de Petición: Simulacro 1 - Simulacro 2
+-​   Orientación al Usuario y al Ciudadano: Es el enfoque en el servicio público donde
+     las necesidades y expectativas de las personas están en el centro de las decisiones
+     y la prestación de servicios. Implica tratar a los ciudadanos con respeto, empatía y
+     diligencia, facilitando la solución de sus problemas y mejorando la confianza en las
+     instituciones. Esta competencia es un pilar de la ética pública y busca que los
+     trámites sean más claros, accesibles y eficientes para los ciudadanos.
+
+
+        -​   Lineamientos Política de Servicio: Función Pública
+        -​   ABC Servicio al Ciudadano: Colaboración
+        -​   Protocolos de Atención: DIAN
+        -​   Explicación en Youtube: Parte 1 - Parte 2
+        -​   Simulacros Servicio al Ciudadano: Simulacro 1 - Simulacro 2
+
+
+-​   Gestión Documental (Acuerdo 001 de 2024 - AGN): La gestión documental es un
+     tema básico en todas las entidades del Estado, por lo cual es muy importante
+     entender qué son los documentos, cuáles son los tipos de archivo (Gestión, Central,
+     Histórico), qué son las Tablas de Retención Documental TRD, qué son las
+     transferencias documentales y cómo se realiza la organización de documentos,
+     entre otros temas:
+
+
+        -​   Curso Gestión Documental Youtube: Video Drive
+        -​   Instrumentos Archivísticos: Video Drive
+        -​   Acuerdo 001 de 2024: Google Drive - Archivo General de la Nación
+        -​   Ley 594 de 2000: Unidad Victimas
+        -​   Simulacros Gestión Documental: Simulacro 1 - Simulacro 2
+
+
+-​   Modelo Integrado de Planeación y Gestión - MIPG: Este tema es uno de los
+     pilares de la función pública, ya que aquí están contenidas las diferentes
+     dimensiones y políticas que deben tener todas las entidades del Estado. Lo
+     importante del MIPG es estudiar solo las partes que estén relacionadas con las
+     funciones del empleo, ya que hay algunas dimensiones que no están relacionadas
+     con el empleo, por lo cual no es necesario estudiarlas, recuerda estudiar este tema
+     haciendo uso de Notebooklm:
+
+
+        -​   Manual Operativo MIPG v6: Google Drive - Función Pública
+        -​   Simulacros MIPG: Simulacro 1 - Simulacro 2
+-​   Evasión, Elusión y Contrabando: La evasión tributaria consiste en el impago ilegal
+     de tributos, mientras la elusión aprovecha vacíos normativos para reducir la carga
+     fiscal, conductas mitigadas mediante cláusulas antiabuso. El contrabando implica el
+     ingreso o salida clandestina de mercancías evadiendo el control aduanero. Erradicar
+     estas prácticas es la misionalidad central de la DIAN para proteger el recaudo
+     nacional, la seguridad fiscal y el comercio legal en Colombia.
+
+
+        -​   Estatuto Tributário: Google Drive - Función Pública
+                -​   Arts. 869 al 869-2
+        -​   Código Penal - Ley 599 de 2000: Google Drive - Función Pública
+                -​   Arts. 318, 319, 320, 321 y 322
+        -​   Decreto 920 de 2023: SUIN - Alcaldiabogota
+                -​   Art. 69 y Art. 73
+        -​   Ley 1762 de 2015: Senado - Función Pública
+
+
+
+
+-​   Herramientas Informáticas: Son programas o aplicaciones que se utilizan en
+     computadoras, tablets o smartphones para realizar diversas tareas de manera más
+     eficiente, como procesar texto, gestionar datos, crear presentaciones, o comunicarse
+
+
+        -​   Competencias en Tecnología: Mineducación
+        -​   Informática básica: Escuela Judicial
+
+
+-​   Ley de Transparencia: Regula el derecho de acceso a la información pública, los
+     procedimientos para el ejercicio y garantía del derecho y las excepciones a la
+     publicidad de información:
+
+
+        -​   Ley 1712 de 2014: Google Drive - Función Pública
+
+
+-​   Código de Integridad (DIAN): Es un conjunto de principios y valores éticos que
+     guían el comportamiento de sus servidores y colaboradores, estableciendo pautas
+     de conducta para el correcto ejercicio de la función pública.
+
+
+        -​   Código de Ética: DIAN
+        -​   Ética y Buen Gobierno: DIAN
+        -​   Programa Transparencia y Ética Pública: DIAN
+                          Competencias Funcionales
+
+Estas competencias se relacionan directamente con tu manual de funciones, de acuerdo
+con tu OPEC, los temas que debes estudiar son los siguientes:
+
+
+
+
+   -​   Políticas estatales de Servicio al Ciudadano: El servicio al ciudadano es un fin
+        esencial del Estado colombiano, consagrado en el artículo 2° de la Constitución
+        Política de 1991, que establece que el Gobierno tiene la obligación de servir a la
+        comunidad, garantizar la eficacia de los derechos fundamentales y promover la
+        prosperidad general
+
+
+           -​   Protocolo de Servicio al Ciudadano: Función Pública
+           -​   ABC de Servicio al Ciudadano: DNP
+           -​   Manual del Servicio al Ciudadano: SIGME
+
+
+   -​   Sistema Tributario y Teoría de la Imposición: Es el conjunto de impuestos,
+        contribuciones y tasas que un Estado establece para financiar sus gastos, mientras
+        que la teoría de la imposición es el estudio económico y legal de cómo se diseñan,
+        aplican y afectan estos tributos.
+
+
+           -​   Sistema Tributario Colombiano: DIAN
+           -​   Teoría de la Imposición: e-publica
+
+
+   -​   Generalidades de Recibo de Declaraciones y Recaudo de Tributos
+        administrados por la DIAN: Es un proceso misional y fundamental mediante el cual
+        la Dirección de Impuestos y Aduanas Nacionales (DIAN) de Colombia gestiona el
+        cumplimiento de las obligaciones fiscales de los contribuyentes. Su objetivo principal
+        es recaudar los recursos necesarios para financiar el gasto público del Estado, como
+        la educación, la salud y la seguridad.
+
+
+           -​   Estatuto Tributário (Art 580-1) : Google Drive - Función Pública
+           -​   Estatuto Tributário (578 - 580 y 490)
+           -​   Devoluciones y Compensaciones: DIAN
+-​   Generalidades del Sistema Aduanero y Cambiario: son dos pilares del comercio
+     exterior, donde el Sistema Aduanero (gestionado por la DIAN en Colombia) regula el
+     ingreso, salida y tránsito de mercancías mediante controles previos, simultáneos y
+     posteriores, mientras que el Sistema Cambiario (supervisado por el Banco de la
+     República y la DIAN) administra las divisas y las transacciones internacionales,
+     estableciendo las normas para el pago y la canalización de operaciones, ambos
+     conectados intrínsecamente en las operaciones de comercio exterior.
+
+
+        -​   Constitución Política (Art. 95 y 363 C.P.) .: Google Drive - Alcaldía Bogotá
+        -​   Estatuto Tributário: Google Drive - Función Pública
+        -​   Procedimiento Tributario: Youtube
+        -​   Sistema Tributario Colombiano: Dian
+        -​   Régimen de Aduanas - Decreto 1165 de 2019: Google Drive - Alcaldía
+             Bogotá
+        -​   Resolución 1 de 2018: Google Drive - Banco Republica
+        -​   Resolución 180 de 2024: Google Drive - DIAN
+        -​   Obligación Sustancial en el Régimen Cambiario: Misión Mérito
+
+
+
+
+-​   Cobro Coactivo: Para este tema es importante que conozcas los documentos de
+     Código General del Proceso (Ley 1564 de 2012) – Título sobre Cobro Coactivo, Ley
+     1066 de 2006 (Normas para el cobro de obligaciones a favor del Estado),
+     procedimientos de embargo, secuestro y remate:
+
+
+        -​   Estatuto Tributario: Google Drive - Función Pública
+        -​   Procedimiento Cobro Coactivo: Google Drive - Unipiloto
+        -​   Código General del Proceso: Google Drive - Función Pública
+        -​   Normalización de Cartera: Google Drive - Función Pública
+
+
+-​   Medidas Cautelares: Consisten en el proceso de embargar los activos identificados
+     del deudor, de terceros que se comprometen a pagar o de los deudores solidarios o
+     subsidiarios, para lograr el pago de las obligaciones.
+
+
+        -​   Procedimiento Medidas Cautelares: Google Drive - DIAN​
+-​   Entidades Autorizadas para Recaudar Impuestos: Aquí es importante conocer las
+     disposiciones para el proceso de recepción de las declaraciones y el recaudo de los
+     impuestos, a través de los Establecimientos Bancarios y Corporaciones de Ahorro y
+     Vivienda. Adicionalmente, es importante revisar en el Estatuto Tributario los Artículos
+     que hablan sobre las sanciones a estas entidades en caso de incumplimiento:
+
+
+        -​   Resolución 478 de 2000: Google Drive - DIAN
+
+
+-​   Devoluciones y Compensaciones: Se trata del proceso que se debe llevar a cabo
+     para devolver o compensar saldos a favor que tiene el contribuyente. Lo
+     recomendable es revisar inicialmente los videos sobre este proceso y luego revisar
+     el contenido del micrositio de la DIAN
+
+
+        -​   Generalidades del Proceso: Youtube
+        -​   Novedades: Youtube
+        -​   Decreto 2277 de 2012: Función Publica
+        -​   Micrositio de la DIAN: Sitio Web
+        -​   ABC Devoluciones y Compensaciones: DIAN
+
+
+-​   Cobro Coactivo y Persuasivo: El cobro persuasivo y el cobro coactivo son dos
+     etapas del proceso de recuperación de deudas a favor de la entidad. El cobro
+     persuasivo es la fase inicial, donde se busca que el deudor pague voluntariamente,
+     mientras que el cobro coactivo es un procedimiento administrativo que permite a la
+     contraloría, como entidad pública, ejecutar el cobro forzoso de la deuda mediante
+     medidas como el embargo de bienes, sin necesidad de acudir a la jurisdicción
+     ordinaria:
+
+
+        -​   Procedimiento de Cobro Coactivo y Persuasivo: Youtube
+        -​   Prescripción Cobro Coactivo: Youtube
+        -​   Manual Procedimiento de Cobro Coactivo: Google Drive - Contraloría
+        -​   Reglamento de Recaudo Bogotá: Google Drive - Contraloría
+        -​   Facilidades de Pago: (Estatuto Tributario Artículo 814)
+                  -​   Google Drive - Función Pública
+-​   Procesos Procesos Concursales: Constituyen el conjunto de procedimientos
+     mediante los cuales un deudor que se encuentra en estado de insolvencia puede
+     someter su patrimonio y obligaciones a un régimen especial, con el fin de satisfacer
+     sus acreedores de forma ordenada o, en su caso, liquidar sus bienes.
+
+
+        -​   Guía Orientación: Supersociedades
+        -​   Regimen de Insolvencia: Camaramedellin
+
+
+-​   Control Extensivo de Obligaciones: Tiene por finalidad la detección y corrección
+     de errores e incumplimientos menos complejos. Se dirige a verificar con carácter
+     general todas las obligaciones tributarias individualmente consideradas partiendo de
+     la información de que dispone la Agencia
+
+
+        -​   Resolución 081 de 2016: Dian
+        -​   Resolución 070 de 2020: Dian
+        -​   Control Excesivo de Obligaciones: Dian
+
+
+-​   Dinámica de la Cuenta Corriente: La dinámica de la cuenta corriente se refiere a
+     dos conceptos: la cuenta corriente bancaria (movimientos de dinero, débitos y
+     créditos) y la Cuenta Corriente de la Balanza de Pagos (flujos económicos
+     internacionales: bienes, servicios, ingresos primarios y secundarios), y en
+     contabilidad, la "dinámica" explica cómo aumentan o disminuyen las cuentas
+     (débito/crédito) según su naturaleza, por ejemplo, los activos como el banco
+     aumentan en el debe y disminuyen en el haber.
+
+
+        -​   Estatuto Tributário: Google Drive - Función Pública
+        -​   Devoluciones y Compensaciones: DIAN
+        -​   Manual Procedimiento de Cobro Coactivo: Google Drive - Contraloría
+        -​   Procedimiento Cobro Coactivo: Google Drive - Unipiloto
+   -​   Depuración de Cartera: La depuración de cartera es un proceso contable y
+        financiero que consiste en limpiar y ajustar los saldos de las cuentas por cobrar,
+        eliminando aquellos que son incobrables, presentan errores, o ya no son exigibles,
+        para reflejar la realidad económica de la empresa y cumplir con normativas,
+        mediante la aplicación de notas débito/crédito, reclasificaciones y, en algunos casos,
+        la baja definitiva de deudas (como las prescritas o de muy difícil recaudo).
+
+
+           -​   Lineamientos Gestión de Cartera: DIAN
+           -​   Estatuto Tributário: (Art. 817) ( (Art. 820)
+           -​   ​      Google Drive - Función Pública
+           -​   Normalización Saldos Obligación Financiera: DIAN
+
+
+                    Competencias Comportamentales
+
+Estas competencias buscan identificar la idoneidad de un ciudadano para ser servidor
+público, ya que es preciso que sepa cómo desempeñarse en diferentes contextos de
+acuerdo con los valores y principios que se esperan de una persona que se encuentra al
+servicio de la ciudadanía:
+
+   -​   Diccionario de Competencias Comportamentales. Este es el documento que
+        explica las competencias comportamentales comunes a todos los servidores
+        públicos de la DIAN y las específicas por nivel jerárquico. En tu caso, debes leer las
+        competencias comportamentales básicas y las siguientes competencias
+        comportamentales específicas: Comportamiento ético (Nivel 4), Comunicación
+        Efectiva (Nivel 2), Adaptabilidad (Nivel 2) en Trabajo en Equipo (Nivel 3).
+
+
+           -​   Google Drive - DIAN
+                              Prueba de Integridad
+
+En esta prueba se evalúa la idoneidad del aspirante de acuerdo con los valores del servicio
+público y la DIAN. Se realiza con base en el Código de Ética de la DIAN, aquí debes
+aprender cada una de las conductas de LO QUE HAGO y LO QUE NO HAGO para los
+valores de Honestidad, Diligencia, Justicia, Respeto y Compromiso:
+
+
+           -​   Código de Integridad: Google Drive
+           -​   Explicación Código de Integridad: Youtube
+           -​   Audios Código de Integridad: Google Drive
+
+
+                         Cómo Estudiar los Temas
+
+A continuación encontrarás dos videos que hacen parte de mi curso, en el cual explico
+algunos consejos y estrategias para que puedas estudiar y prepararte para la presentación
+de las pruebas escritas. Te recomiendo que los revises, ya que aquí explico el uso de una
+herramienta de Inteligencia Artificial muy importante para resumir temas y estudiarlos que
+es Notebooklm.
+
+
+En este primer video explico algunas de las cosas que debes tener en cuenta para
+prepararte para las pruebas escritas. Omite las secciones sobre la identificación de los
+temas, ya que los temas ya están identificados y son los que encuentras en las anteriores
+secciones del presente documento.
+
+   -​   Link Consejos de Estudio: Ver Video
+
+
+En este segundo video explico el uso de la herramienta Notebooklm, para que puedas
+utilizarla en los temas que sean muy complejos o extensos:
+
+   -​   Link herramienta Notebooklm: https://notebooklm.google/
+   -​   Explicación uso Notebooklm: Ver Video
+Recomendaciones:
+
+Esta es una instrucción que te sugiero que pongas en la herramienta para que te de un
+resumen de tu tema específico una vez hayas cargado el respectivo documento de estudio,
+solo debes cambiar “NOMBRE TEMA” por el tema específico que quieras:
+
+Quiero un resumen del tema NOMBRE TEMA de acuerdo con los documentos
+cargados. Luego dime de manera exacta qué secciones de cada documento debo
+revisar y en qué orden, para entender fácilmente y de un modo completo el tema
+indicado.
+
+
+Ten en cuenta que debes pedirle un tema que esté dentro del documento, por ejemplo, si
+cargas la Constitución Política, puedes decirle que te haga un resúmen de la
+ESTRUCTURA DEL ESTADO, pero no de otros temas que no están en la constitución (ej:
+Derechos de Petición, Gestión Documental, MIPG, Excel, etc.) ya que debes cargar esos
+documentos en un nuevo notebook para hacer el mismo proceso de pedirle un resumen del
+respectivo tema.
+

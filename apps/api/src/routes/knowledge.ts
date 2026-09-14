@@ -21,7 +21,7 @@ function handle(error: unknown, res: Response, next: NextFunction) {
   next(error);
 }
 
-knowledgeRouter.get("/catalog", async (_req, res, next) => { try { res.json(await getKnowledgeCatalog()); } catch (error) { handle(error, res, next); } });
+knowledgeRouter.get("/catalog", async (req, res, next) => { try { res.json(await getKnowledgeCatalog(typeof req.query.documentId === "string" ? req.query.documentId : undefined)); } catch (error) { handle(error, res, next); } });
 knowledgeRouter.post("/documents", async (req, res, next) => {
   try { res.status(201).json(await createLegalDocument(z.object({ title: z.string().min(3), authority: z.string().min(2), documentType: z.string().min(2), officialUrl: z.string().url(), effectiveFrom: date, effectiveUntil: date.nullish() }).parse(req.body))); } catch (error) { handle(error, res, next); }
 });

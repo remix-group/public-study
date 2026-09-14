@@ -35,3 +35,10 @@ Fuentes objetivo del MVP:
 ## Knowledge Core
 
 `LegalDocument` registra la fuente lógica y el estado de su pipeline. `LegalVersion` representa una edición temporal inmutable. Durante el MVP, `LegalProvision` implementa el concepto arquitectónico `LegalUnit` y puede representar títulos, capítulos, artículos, parágrafos, incisos, numerales o anexos mediante una jerarquía y un `anchor` estable.
+
+Las fechas de vigencia pueden ser desconocidas durante una importación masiva. En ese caso
+`effectiveFrom` permanece nulo y el documento, versión o unidad conserva estado
+`pending_review`; nunca se inventa una fecha para satisfacer el almacenamiento. El material
+pedagógico, las cartillas y las extracciones visuales se conservan como tipos de unidad dentro
+de la misma cadena documental, pero no se presentan como autoridad jurídica hasta superar
+revisión editorial.

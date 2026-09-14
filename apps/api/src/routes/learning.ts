@@ -3,7 +3,7 @@ import {
   LearningObjectivePrismaRepository,
   QuestionPrismaRepository,
 } from "@dian-study/infrastructure";
-import { getObjectiveStudyGuide, getStudentDashboard } from "../application/study-session-progress.js";
+import { getObjectiveStudyGuide, getStudentDashboard, getStudyLibrary } from "../application/study-session-progress.js";
 import { getTopicKnowledgeGraph } from "../application/topic-knowledge-graph.js";
 import { AttemptNotFoundError } from "../application/submit-question-attempt.js";
 import { requireAuth } from "../auth/middleware.js";
@@ -65,6 +65,19 @@ learningRouter.get("/dashboard", async (_req, res, next) => {
     res.json(await getStudentDashboard(res.locals.studentId));
   } catch (error) {
     if (error instanceof AttemptNotFoundError) return res.status(404).json({ error: error.message });
+    next(error);
+  }
+});
+
+learningRouter.get("/library", async (req, res, next) => {
+  try {
+    const page = typeof req.query.page === "string" ? Number(req.query.page) : 1;
+    res.json(await getStudyLibrary({
+      documentId: typeof req.query.documentId === "string" ? req.query.documentId : undefined,
+      query: typeof req.query.query === "string" ? req.query.query : undefined,
+      page: Number.isFinite(page) ? page : 1,
+    }));
+  } catch (error) {
     next(error);
   }
 });

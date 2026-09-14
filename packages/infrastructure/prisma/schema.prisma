@@ -123,7 +123,7 @@ model LegalDocument {
   contentHash     String?
   originalFileKey String?
   pipelineStatus  String    @default("RECEIVED")
-  effectiveFrom   DateTime
+  effectiveFrom   DateTime?
   effectiveUntil  DateTime?
   status          String    @default("vigente") // vigente | derogado | modificado | suspendido
   createdAt       DateTime  @default(now())
@@ -140,7 +140,7 @@ model LegalVersion {
   id             String    @id @default(cuid())
   documentId     String
   label          String
-  effectiveFrom  DateTime
+  effectiveFrom  DateTime?
   effectiveUntil DateTime?
   status         String    @default("vigente")
   sourceHash     String?
@@ -170,7 +170,7 @@ model LegalProvision {
   title             String
   content           String
   citation          String
-  effectiveFrom     DateTime
+  effectiveFrom     DateTime?
   effectiveUntil    DateTime?
   status            String    @default("vigente")
   createdAt         DateTime  @default(now())

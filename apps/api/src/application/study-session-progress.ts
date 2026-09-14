@@ -100,15 +100,18 @@ export async function getStudentDashboard(studentId: string) {
   const dueReview = reviews.find((review) => review.scheduledAt <= new Date());
   const recommended = dueReview
     ? objectiveProgress.find((item) => item.objectiveId === dueReview.objectiveId)
-    : [...objectiveProgress].filter((item) => item.accessible && item.questionCount > 0).sort((a, b) => a.mastery - b.mastery || a.totalAttempts - b.totalAttempts)[0];
+    : [...objectiveProgress].filter((item) => item.accessible && item.questionCount > 0).sort((a, b) => a.mastery - b.mastery || a.totalAttempts - b.totalAttempts)[0]
+      ?? objectiveProgress.find((item) => item.accessible);
   const recommendation = recommended ? {
     ...recommended,
-    action: dueReview ? "REVIEW" : recommended.totalAttempts ? "PRACTICE" : "LEARN",
+    action: dueReview ? "REVIEW" : recommended.questionCount && recommended.totalAttempts ? "PRACTICE" : "LEARN",
     reason: dueReview
       ? "El objetivo tiene un repaso programado y riesgo de olvido."
-      : recommended.totalAttempts
+      : recommended.questionCount && recommended.totalAttempts
         ? "El objetivo está desbloqueado y presenta el dominio más bajo de tu ruta actual."
-        : "Es el siguiente objetivo disponible en la ruta curricular.",
+        : recommended.questionCount
+          ? "Es el siguiente objetivo disponible en la ruta curricular."
+          : "Es el siguiente material disponible en la ruta; la práctica se habilitará cuando tenga preguntas revisadas.",
   } : null;
   const route = blocks.map((block) => ({
     id: block.id, name: block.name, description: block.description, threshold: block.progressionThreshold,
@@ -143,6 +146,10 @@ export async function getObjectiveStudyGuide(objectiveId: string) {
     where: { id: objectiveId, status: "active", topic: { status: "active" } },
     include: {
       topic: { include: { block: { include: { competency: true } } } },
+      concepts: {
+        orderBy: { createdAt: "asc" },
+        include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } },
+      },
       questions: {
         where: { editorialStatus: "published", evidences: { some: {} } },
         orderBy: [{ difficulty: "asc" }, { createdAt: "asc" }],
@@ -157,20 +164,30 @@ export async function getObjectiveStudyGuide(objectiveId: string) {
 
   const evidenceById = new Map<string, {
     id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string;
-    documentTitle: string; officialUrl: string;
+    documentTitle: string; officialUrl: string; validationStatus: string; editorialStatus: string;
   }>();
+  const addEvidence = (evidence: typeof objective.concepts[number]["evidences"][number]["evidence"]) => {
+    evidenceById.set(evidence.id, {
+      id: evidence.id, citation: evidence.citation, content: evidence.content,
+      provisionNumber: evidence.provision.number, provisionTitle: evidence.provision.title,
+      documentTitle: evidence.provision.document.title, officialUrl: evidence.provision.document.officialUrl,
+      validationStatus: evidence.provision.validationStatus, editorialStatus: evidence.provision.editorialStatus,
+    });
+  };
+  for (const concept of objective.concepts) {
+    for (const link of concept.evidences) addEvidence(link.evidence);
+  }
   for (const question of objective.questions) {
     for (const link of question.evidences) {
       const { evidence } = link;
       if (evidence.provision.validationStatus !== "approved" || evidence.provision.editorialStatus !== "published") continue;
-      evidenceById.set(evidence.id, {
-        id: evidence.id, citation: evidence.citation, content: evidence.content,
-        provisionNumber: evidence.provision.number, provisionTitle: evidence.provision.title,
-        documentTitle: evidence.provision.document.title, officialUrl: evidence.provision.document.officialUrl,
-      });
+      addEvidence(evidence);
     }
   }
-  const keyConcepts = [...new Set(objective.questions.map((question) => question.explanation.trim()).filter(Boolean))].slice(0, 4);
+  const keyConcepts = [...new Set([
+    ...objective.concepts.map((concept) => concept.description.trim()),
+    ...objective.questions.map((question) => question.explanation.trim()),
+  ].filter(Boolean))].slice(0, 6);
   return {
     objective: { id: objective.id, name: objective.name, description: objective.description },
     topic: { id: objective.topic.id, name: objective.topic.name },
@@ -186,5 +203,45 @@ export async function getObjectiveStudyGuide(objectiveId: string) {
     keyConcepts,
     evidences: [...evidenceById.values()],
     questionCount: objective.questions.length,
+  };
+}
+
+export async function getStudyLibrary(input: { documentId?: string; query?: string; page?: number }) {
+  const page = Math.max(1, Math.trunc(input.page ?? 1));
+  const take = 20;
+  const documents = await prisma.legalDocument.findMany({
+    orderBy: { title: "asc" },
+    select: {
+      id: true, title: true, authority: true, documentType: true, pipelineStatus: true,
+      contentHash: true, originalFileKey: true, _count: { select: { provisions: true } },
+    },
+  });
+  const selectedId = documents.some((document) => document.id === input.documentId) ? input.documentId! : documents[0]?.id;
+  if (!selectedId) return { documents: [], selectedDocument: null, units: [], page, totalPages: 0, totalUnits: 0 };
+  const query = input.query?.trim();
+  const where = {
+    documentId: selectedId,
+    ...(query ? { OR: [
+      { number: { contains: query, mode: "insensitive" as const } },
+      { title: { contains: query, mode: "insensitive" as const } },
+    ] } : {}),
+  };
+  const [units, totalUnits] = await Promise.all([
+    prisma.legalProvision.findMany({
+      where, orderBy: [{ order: "asc" }, { createdAt: "asc" }], skip: (page - 1) * take, take,
+      select: {
+        id: true, unitType: true, number: true, title: true, content: true, citation: true,
+        validationStatus: true, editorialStatus: true,
+      },
+    }),
+    prisma.legalProvision.count({ where }),
+  ]);
+  return {
+    documents: documents.map(({ _count, ...document }) => ({ ...document, unitCount: _count.provisions })),
+    selectedDocument: documents.find((document) => document.id === selectedId) ?? null,
+    units,
+    page,
+    totalPages: Math.ceil(totalUnits / take),
+    totalUnits,
   };
 }

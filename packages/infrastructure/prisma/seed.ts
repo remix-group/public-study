@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { randomBytes, scrypt as scryptCallback } from "node:crypto";
 import { promisify } from "node:util";
+import { seedImportedMaterial } from "./material-seed.js";
 
 const prisma = new PrismaClient();
 const SOURCE_URL = "https://normograma.dian.gov.co/dian/compilacion/docs/paneles/estatuto_tributario_indice.html";
@@ -28,8 +29,8 @@ async function main() {
   });
   const block = await prisma.block.upsert({
     where: { id: "block-competency-cobro-coactivo" },
-    update: { name: "Proceso de Cobro Coactivo", description: "De la obligación exigible a las medidas preventivas", order: 1, progressionThreshold: 0.7 },
-    create: { id: "block-competency-cobro-coactivo", competencyId: competency.id, name: "Proceso de Cobro Coactivo", description: "De la obligación exigible a las medidas preventivas", order: 1, progressionThreshold: 0.7 },
+    update: { name: "Proceso de Cobro Coactivo", description: "Contenido base conservado para compatibilidad", order: 99, progressionThreshold: 0.7, status: "inactive" },
+    create: { id: "block-competency-cobro-coactivo", competencyId: competency.id, name: "Proceso de Cobro Coactivo", description: "Contenido base conservado para compatibilidad", order: 99, progressionThreshold: 0.7, status: "inactive" },
   });
   const topic = await prisma.topic.upsert({
     where: { id: "topic-procedimiento" }, update: { blockId: block.id, name: "Fundamentos y títulos ejecutivos", description: "Qué se cobra y qué documentos permiten iniciar el procedimiento", order: 1 },
@@ -190,6 +191,7 @@ async function main() {
       create: { studentId: student.id, topicId: itemTopic.id, state: index === 0 ? "AVAILABLE" : "LOCKED", unlockedAt: index === 0 ? new Date() : null },
     });
   }
+  await seedImportedMaterial(prisma);
   console.log({ studentId: student.id, competencyId: competency.id, questionId: question.id });
 }
 

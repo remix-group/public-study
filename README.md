@@ -15,7 +15,7 @@ Node.js y pnpm no son necesarios en la máquina para ejecutar la plataforma. Las
 docker compose up --build
 ```
 
-Compose inicia PostgreSQL, aplica las migraciones, carga el seed, inicia la API y sirve la interfaz. La aplicación queda disponible en `http://localhost:5173`; las solicitudes `/api` se resuelven internamente mediante Nginx. El seed carga 10 preguntas controladas sobre los artículos 823, 826, 828 y 837 del Estatuto Tributario.
+Compose inicia PostgreSQL, aplica las migraciones, carga el seed, inicia la API y sirve la interfaz. La aplicación queda disponible en `http://localhost:5173`; las solicitudes `/api` se resuelven internamente mediante Nginx. El seed carga 10 preguntas controladas sobre los artículos 823, 826, 828 y 837 del Estatuto Tributario, la ruta integral de 6 bloques y 25 temas, y el corpus importado de 37 documentos con sus unidades y evidencias pendientes de revisión.
 
 Para ejecutar en segundo plano o consultar el estado:
 
