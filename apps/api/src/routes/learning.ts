@@ -74,7 +74,12 @@ learningRouter.get("/library", async (req, res, next) => {
     const page = typeof req.query.page === "string" ? Number(req.query.page) : 1;
     res.json(await getStudyLibrary({
       documentId: typeof req.query.documentId === "string" ? req.query.documentId : undefined,
+      versionId: typeof req.query.versionId === "string" ? req.query.versionId : undefined,
       query: typeof req.query.query === "string" ? req.query.query : undefined,
+      unitType: typeof req.query.unitType === "string" ? req.query.unitType : undefined,
+      validationStatus: typeof req.query.validationStatus === "string" ? req.query.validationStatus : undefined,
+      status: typeof req.query.status === "string" ? req.query.status : undefined,
+      withIssues: req.query.withIssues === "true",
       page: Number.isFinite(page) ? page : 1,
     }));
   } catch (error) {

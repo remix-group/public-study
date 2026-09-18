@@ -86,12 +86,28 @@ export interface StudyGuide {
   questionCount: number;
 }
 export interface StudyLibrary {
-  documents: Array<{ id: string; title: string; authority: string; documentType: string; pipelineStatus: string; contentHash: string | null; originalFileKey: string | null; unitCount: number }>;
-  selectedDocument: { id: string; title: string } | null;
-  units: Array<{ id: string; unitType: string; number: string; title: string; content: string; citation: string; validationStatus: string; editorialStatus: string }>;
+  documents: StudyLibraryDocument[];
+  selectedDocument: StudyLibraryDocument | null;
+  selectedVersionId: string | null;
+  unitTypes: string[];
+  units: Array<{
+    id: string; versionId: string | null; parentProvisionId: string | null; unitType: string; anchor: string; documentPath: string; order: number;
+    number: string; title: string; content: string; citation: string; validationStatus: string; editorialStatus: string;
+    status: string; extractionIssues: Array<{ code: string; label: string }> | null; position: number | null; childCount: number;
+    contentLayer: "original" | "derived"; version: { id: string; label: string; status: string; isCurrent: boolean } | null;
+    parent: { id: string; unitType: string; number: string; title: string } | null;
+  }>;
   page: number;
+  pageSize: number;
+  totalDocumentUnits: number;
   totalPages: number;
   totalUnits: number;
+}
+export interface StudyLibraryDocument {
+  id: string; title: string; authority: string; documentType: string; pipelineStatus: string; source: string; officialUrl: string;
+  contentHash: string | null; originalFileKey: string | null; originalFileName: string | null; effectiveFrom: string | null;
+  status: string; createdAt: string; updatedAt: string; unitCount: number;
+  versions: Array<{ id: string; label: string; effectiveFrom: string | null; effectiveUntil: string | null; status: string; sourceHash: string | null; isCurrent: boolean; createdAt: string }>;
 }
 export type KnowledgeGraphNodeKind = "topic" | "objective" | "concept" | "provision" | "document";
 export interface KnowledgeGraphNode {

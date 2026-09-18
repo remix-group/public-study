@@ -8,6 +8,7 @@ import { KnowledgePanel } from "./KnowledgePanel";
 import { GuidedStudy } from "./GuidedStudy";
 import { TopicKnowledgeMap } from "./TopicKnowledgeMap";
 import { StudyLibrary } from "./StudyLibrary";
+import { GuidedHome } from "./GuidedHome";
 
 type Screen = "checking" | "auth" | "welcome" | "guide" | "map" | "library" | "loading" | "question" | "feedback" | "summary" | "editor" | "knowledge" | "empty";
 
@@ -48,6 +49,8 @@ export function App() {
   const [focusObjectiveId, setFocusObjectiveId] = useState<string | undefined>();
   const [guideObjectiveId, setGuideObjectiveId] = useState<string | undefined>();
   const [mapTopicId, setMapTopicId] = useState<string | undefined>();
+  const [expandedBlockId, setExpandedBlockId] = useState<string | undefined>();
+  const [expandedTopicId, setExpandedTopicId] = useState<string | undefined>();
 
   function openGuide(objectiveId?: string) {
     if (!objectiveId) { begin(); return; }
@@ -61,6 +64,13 @@ export function App() {
   useEffect(() => {
     if (screen === "question") setStartedAt(Date.now());
   }, [screen, question?.id]);
+
+  useEffect(() => {
+    const recommendation = dashboard?.recommendedObjective;
+    if (!recommendation) return;
+    setExpandedBlockId(recommendation.blockId);
+    setExpandedTopicId(recommendation.topicId);
+  }, [dashboard?.recommendedObjective?.objectiveId]);
 
   useEffect(() => {
     getCurrentStudent().then(({ student: current }) => {
@@ -153,20 +163,7 @@ export function App() {
       {screen === "guide" && guideObjectiveId && <GuidedStudy objectiveId={guideObjectiveId} onBack={() => setScreen("welcome")} onPractice={() => begin(guideObjectiveId, "PRACTICE")}/>}
       {screen === "map" && mapTopicId && <TopicKnowledgeMap topicId={mapTopicId} onBack={() => setScreen("welcome")}/>}
 
-      {screen === "welcome" && (
-        <main className="student-home">
-          <section className="student-greeting"><div><div className="eyebrow">Tu preparación DIAN</div><h1>Hola, {student?.name.split(" ")[0]}.</h1><p>Tu ruta integral reúne los 25 temas definidos para la OPEC 236828.</p></div><div className="mastery-overview"><span>{masteryPercent(dashboard?.overallMastery ?? 0)}%</span><small>dominio global</small></div></section>
-          {error && <div className="alert" role="alert">{error}</div>}
-          <section className="learning-process"><div><span className="eyebrow">Así vas a aprender</span><h2>Un ciclo activo, no una lista de lecturas</h2><p>Primero recuperas lo que sabes; después contrastas, practicas, recibes diagnóstico y vuelves a recuperar el conocimiento cuando corresponda.</p></div><ol>{dashboard?.process.steps.map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol></section>
-          <section className="today-plan">
-            <div className="today-copy"><span className="today-badge"><Icon name="target"/> Siguiente acción recomendada</span><h2>{dashboard?.recommendedObjective?.objective ?? "Explora tu ruta integral"}</h2><p>{dashboard?.recommendedObjective?.description ?? "Consulta los documentos incorporados para comenzar tu preparación."}</p>{dashboard?.recommendedObjective?.reason && <div className="recommendation-reason">Por qué: {dashboard.recommendedObjective.reason}</div>}<div className="plan-meta"><span><Icon name="clock"/> 5–10 minutos</span><span><Icon name="shield"/> Fuentes trazables</span><span>{dashboard?.recommendedObjective?.questionCount ?? 0} preguntas revisadas</span></div><div className="mode-actions"><button className="button primary" onClick={() => openGuide(dashboard?.recommendedObjective?.objectiveId)}>Aprender <span>→</span></button><button className="button secondary" disabled={!dashboard?.recommendedObjective?.questionCount} onClick={() => begin(dashboard?.recommendedObjective?.objectiveId, dashboard?.recommendedObjective?.action === "REVIEW" ? "REVIEW" : "PRACTICE")}>{dashboard?.recommendedObjective?.action === "REVIEW" ? "Repasar" : dashboard?.recommendedObjective?.questionCount ? "Practicar" : "Práctica en preparación"}</button></div></div>
-            <div className="plan-score"><small>Dominio del objetivo</small><strong>{masteryPercent(dashboard?.recommendedObjective?.mastery ?? 0)}%</strong><div><span style={{ width: `${masteryPercent(dashboard?.recommendedObjective?.mastery ?? 0)}%` }}/></div><p>{dashboard?.pendingReviews.some((review) => review.due) ? "Tienes un repaso pendiente para hoy." : "La ruta se ajusta después de cada respuesta."}</p></div>
-          </section>
-          <section className="student-metrics"><article><small>Dominio acumulado</small><strong>{masteryPercent(dashboard?.overallMastery ?? 0)}%</strong></article><article><small>Objetivos practicados</small><strong>{dashboard?.objectives.filter((item) => item.totalAttempts > 0).length ?? 0}<span>/{dashboard?.objectives.length ?? 0}</span></strong></article><article><small>Repasos pendientes</small><strong>{dashboard?.pendingReviews.filter((item) => item.due).length ?? 0}</strong></article><article><small>Sesiones completadas</small><strong>{dashboard?.recentSessions.length ?? 0}</strong></article></section>
-          <section className="learning-path"><div className="section-heading"><div><span className="eyebrow">Ruta de aprendizaje</span><h2>Seis bloques, veinticinco temas</h2></div><button className="text-button" onClick={() => setScreen("library")}>Abrir biblioteca →</button></div><div className="route-board">{dashboard?.route.map((block) => <article key={block.id}><header><div><small>{block.profile} · {block.competency}</small><h3>{block.name}</h3><p>{block.description}</p></div><span>Umbral {Math.round(block.threshold * 100)}%</span></header><div className="route-topics">{block.topics.map((topic) => <article className={`route-topic ${topic.state.toLowerCase()}`} key={topic.id}><span className="route-index">{topic.state === "COMPLETED" || topic.state === "MASTERED" ? "✓" : topic.order}</span><div><small>{topic.state.replace("_", " ")}</small><strong>{topic.name}</strong><p>{topic.description}</p><div className="route-topic-actions"><button onClick={() => topic.objectives[0] && openGuide(topic.objectives[0].objectiveId)}>Estudiar tema →</button><button onClick={() => openMap(topic.id)}>Mapa jurídico →</button></div></div><b>{masteryPercent(topic.mastery)}%</b></article>)}</div></article>)}</div><div className="objective-grid">{dashboard?.objectives.map((item, index) => <article className={`student-objective ${!item.accessible ? "locked" : ""}`} key={item.objectiveId}><div className="objective-top"><span>{String(index + 1).padStart(2, "0")}</span><span className={item.curriculumState === "IN_PROGRESS" ? "objective-status active" : "objective-status"}>{item.curriculumState.replace("_", " ")}</span></div><small>{item.block} · {item.topic}</small><h3>{item.objective}</h3><p>{item.description}</p><div className="objective-progress"><div><span style={{ width: `${masteryPercent(item.mastery)}%` }}/></div><strong>{masteryPercent(item.mastery)}%</strong></div><footer><span>{item.questionCount} preguntas revisadas</span><button onClick={() => openGuide(item.objectiveId)}>Consultar material →</button></footer></article>)}</div></section>
-          <section className="student-trust"><Icon name="shield"/><div><strong>Estudias con respaldo normativo</strong><p>Cada explicación muestra el artículo exacto que sustenta la respuesta. Tu progreso se usa para escoger el siguiente repaso.</p></div></section>
-        </main>
-      )}
+      {screen === "welcome" && <><GuidedHome dashboard={dashboard} studentName={student?.name ?? "Estudiante"} expandedBlockId={expandedBlockId} expandedTopicId={expandedTopicId} onBlockChange={setExpandedBlockId} onTopicChange={setExpandedTopicId} onLibrary={() => setScreen("library")} onGuide={openGuide} onPractice={(objectiveId, mode) => begin(objectiveId, mode)} onMap={openMap}/>{error && <div className="home-alert alert" role="alert">{error}</div>}</>}
 
       {screen === "loading" && <main className="center-state"><div className="loader"/><h2>Preparando tu sesión</h2><p>Organizando objetivos y evidencia jurídica…</p></main>}
 

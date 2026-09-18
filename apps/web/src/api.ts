@@ -51,10 +51,19 @@ export function getDashboard() {
   return request<Dashboard>("/api/learning/dashboard");
 }
 export function getStudyGuide(objectiveId: string) { return request<StudyGuide>(`/api/learning/objectives/${objectiveId}/guide`); }
-export function getStudyLibrary(documentId?: string, query?: string, page = 1) {
+export function getStudyLibrary(input: {
+  documentId?: string; versionId?: string; query?: string; page?: number; unitType?: string;
+  validationStatus?: string; status?: string; withIssues?: boolean;
+} = {}) {
+  const { documentId, versionId, query, page = 1, unitType, validationStatus, status, withIssues } = input;
   const params = new URLSearchParams({ page: String(page) });
   if (documentId) params.set("documentId", documentId);
+  if (versionId) params.set("versionId", versionId);
   if (query) params.set("query", query);
+  if (unitType) params.set("unitType", unitType);
+  if (validationStatus) params.set("validationStatus", validationStatus);
+  if (status) params.set("status", status);
+  if (withIssues) params.set("withIssues", "true");
   return request<StudyLibrary>(`/api/learning/library?${params}`);
 }
 export function getTopicKnowledgeGraph(topicId: string) { return request<TopicKnowledgeGraph>(`/api/learning/topics/${topicId}/graph`); }
@@ -84,7 +93,7 @@ export function createKnowledgeEvidence(input: object) { return request(`/api/kn
 export function createKnowledgeRelation(input: object) { return request(`/api/knowledge/relations`, { method: "POST", body: JSON.stringify(input) }); }
 export function ingestKnowledgePdf(documentId: string, file: File, versionLabel: string) {
   return request<{ documentId: string; versionId: string; hash: string; unitsCreated: number; pipelineStatus: string }>(`/api/knowledge/documents/${documentId}/ingest`, {
-    method: "POST", headers: { "Content-Type": "application/pdf", "X-Version-Label": versionLabel }, body: file,
+    method: "POST", headers: { "Content-Type": "application/pdf", "X-Version-Label": versionLabel, "X-Original-File-Name": encodeURIComponent(file.name) }, body: file,
   });
 }
 export function generateKnowledgeMaterial(documentId: string) {

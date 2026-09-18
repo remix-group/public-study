@@ -31,7 +31,9 @@ knowledgeRouter.post("/documents/:id/transition", async (req, res, next) => {
 knowledgeRouter.post("/documents/:id/ingest", express.raw({ type: "application/pdf", limit: "25mb" }), async (req, res, next) => {
   try {
     if (!Buffer.isBuffer(req.body)) throw new AttemptConflictError("Se esperaba un archivo PDF");
-    res.status(201).json(await ingestLegalPdf(req.params.id, req.body, req.header("x-version-label") ?? undefined));
+    const encodedName = req.header("x-original-file-name");
+    const originalFileName = encodedName ? decodeURIComponent(encodedName) : undefined;
+    res.status(201).json(await ingestLegalPdf(req.params.id, req.body, req.header("x-version-label") ?? undefined, originalFileName));
   } catch (error) { handle(error, res, next); }
 });
 knowledgeRouter.post("/documents/:id/generate", async (req, res, next) => {

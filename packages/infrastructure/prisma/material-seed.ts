@@ -108,6 +108,14 @@ function anchor(value: string) {
   return normalized.slice(0, 100) || "unidad";
 }
 
+function extractionIssues(content: string) {
+  const issues: Array<{ code: string; label: string }> = [];
+  if (!content.trim()) issues.push({ code: "EMPTY_CONTENT", label: "La extracción no contiene texto." });
+  if (content.includes("�")) issues.push({ code: "REPLACEMENT_CHARACTER", label: "La extracción contiene caracteres de reemplazo." });
+  if (/\w-\n\w/.test(content)) issues.push({ code: "SPLIT_WORD", label: "La extracción puede contener palabras partidas por salto de línea." });
+  return issues;
+}
+
 function chunks<T>(items: T[], size = 500) {
   const result: T[][] = [];
   for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
@@ -125,6 +133,16 @@ function provisionDepth(row: Row, byId: Map<string, Row>, visiting = new Set<str
   const next = new Set(visiting);
   next.add(id);
   return 1 + provisionDepth(byId.get(parentId)!, byId, next);
+}
+
+function provisionPath(row: Row, byId: Map<string, Row>, visiting = new Set<string>()): string {
+  const id = required(row, "id");
+  const segment = `${String(Math.trunc(numberValue(row.unit_order))).padStart(10, "0")}-${id}`;
+  const parentId = row.parent_id;
+  if (!parentId || !byId.has(parentId) || visiting.has(id)) return segment;
+  const next = new Set(visiting);
+  next.add(id);
+  return `${provisionPath(byId.get(parentId)!, byId, next)}/${segment}`;
 }
 
 export async function seedImportedMaterial(prisma: PrismaClient) {
@@ -155,6 +173,7 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
       officialUrl: "",
       contentHash: currentVersion?.source_hash ?? source?.source_hash ?? null,
       originalFileKey: source?.storage_key ?? null,
+      originalFileName: source?.original_name ?? null,
       pipelineStatus: "REVIEW_REQUIRED",
       effectiveFrom: null,
       effectiveUntil: null,
@@ -190,6 +209,7 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
       parentProvisionId: row.parent_id && units.has(row.parent_id) ? row.parent_id : null,
       unitType: required(row, "unit_type").toLowerCase(),
       anchor: `${anchor(label || heading || required(row, "unit_type"))}-${required(row, "id").slice(0, 8)}`,
+      documentPath: provisionPath(row, units),
       order: Math.trunc(numberValue(row.unit_order)),
       validationStatus: "pending",
       editorialStatus: "draft",
@@ -200,6 +220,7 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
       effectiveFrom: null,
       effectiveUntil: null,
       status: "pending_review",
+      extractionIssues: extractionIssues(row.official_text ?? ""),
     };
   });
   const rawById = new Map(unitRows.map((row) => [required(row, "id"), row]));
@@ -211,6 +232,16 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
   }
   for (const depth of [...byDepth.keys()].sort((a, b) => a - b)) {
     await createManyInChunks(byDepth.get(depth)!, (data) => prisma.legalProvision.createMany({ data, skipDuplicates: true }), 350);
+  }
+  const issueGroups = new Map<string, string[]>();
+  for (const provision of provisionRows) {
+    const key = JSON.stringify(provision.extractionIssues);
+    issueGroups.set(key, [...(issueGroups.get(key) ?? []), provision.id]);
+  }
+  for (const [serialized, ids] of issueGroups) {
+    for (const batch of chunks(ids, 500)) {
+      await prisma.legalProvision.updateMany({ where: { id: { in: batch } }, data: { extractionIssues: JSON.parse(serialized) } });
+    }
   }
 
   const importedEvidences = evidenceRows.map((row) => {
@@ -291,8 +322,8 @@ async function seedCurriculum(prisma: PrismaClient, documentRows: Row[]) {
 
   await prisma.legalDocument.upsert({
     where: { id: "material-manual-opec-236828" },
-    update: { contentHash: "49ac8b402f7b1741d79ca38790b9889329cbd61936357cf750781b02c2e6181b", pipelineStatus: "REVIEW_REQUIRED" },
-    create: { id: "material-manual-opec-236828", title: "Manual de estudio — OPEC 236828", source: "docs/product/sources/opec-236828-manual-estudio.pdf", authority: "Material aportado por el usuario", documentType: "study_manual", contentHash: "49ac8b402f7b1741d79ca38790b9889329cbd61936357cf750781b02c2e6181b", originalFileKey: "docs/product/sources/opec-236828-manual-estudio.pdf", pipelineStatus: "REVIEW_REQUIRED", effectiveFrom: null, status: "pending_review" },
+    update: { contentHash: "49ac8b402f7b1741d79ca38790b9889329cbd61936357cf750781b02c2e6181b", originalFileName: "DIAN - Técnico - Analista I - 236828.pdf", pipelineStatus: "REVIEW_REQUIRED" },
+    create: { id: "material-manual-opec-236828", title: "Manual de estudio — OPEC 236828", source: "docs/product/sources/opec-236828-manual-estudio.pdf", authority: "Material aportado por el usuario", documentType: "study_manual", contentHash: "49ac8b402f7b1741d79ca38790b9889329cbd61936357cf750781b02c2e6181b", originalFileKey: "docs/product/sources/opec-236828-manual-estudio.pdf", originalFileName: "DIAN - Técnico - Analista I - 236828.pdf", pipelineStatus: "REVIEW_REQUIRED", effectiveFrom: null, status: "pending_review" },
   });
   await prisma.legalVersion.upsert({
     where: { id: "material-manual-opec-236828-v1" }, update: { sourceHash: "49ac8b402f7b1741d79ca38790b9889329cbd61936357cf750781b02c2e6181b" },
@@ -300,8 +331,8 @@ async function seedCurriculum(prisma: PrismaClient, documentRows: Row[]) {
   });
   await prisma.legalDocument.upsert({
     where: { id: "material-route-opec-236828" },
-    update: { contentHash: "33099ed3832ca3febb9bd134d64c35d18417abc363534abde4b4819b11a40c2b", pipelineStatus: "REVIEW_REQUIRED" },
-    create: { id: "material-route-opec-236828", title: "Ruta de aprendizaje — OPEC 236828", source: "docs/product/sources/opec-236828-ruta-aprendizaje.pdf", authority: "Material aportado por el usuario", documentType: "learning_route", contentHash: "33099ed3832ca3febb9bd134d64c35d18417abc363534abde4b4819b11a40c2b", originalFileKey: "docs/product/sources/opec-236828-ruta-aprendizaje.pdf", pipelineStatus: "REVIEW_REQUIRED", effectiveFrom: null, status: "pending_review" },
+    update: { contentHash: "33099ed3832ca3febb9bd134d64c35d18417abc363534abde4b4819b11a40c2b", originalFileName: "Ruta - Hoja 1.pdf", pipelineStatus: "REVIEW_REQUIRED" },
+    create: { id: "material-route-opec-236828", title: "Ruta de aprendizaje — OPEC 236828", source: "docs/product/sources/opec-236828-ruta-aprendizaje.pdf", authority: "Material aportado por el usuario", documentType: "learning_route", contentHash: "33099ed3832ca3febb9bd134d64c35d18417abc363534abde4b4819b11a40c2b", originalFileKey: "docs/product/sources/opec-236828-ruta-aprendizaje.pdf", originalFileName: "Ruta - Hoja 1.pdf", pipelineStatus: "REVIEW_REQUIRED", effectiveFrom: null, status: "pending_review" },
   });
   await prisma.legalVersion.upsert({
     where: { id: "material-route-opec-236828-v1" }, update: { sourceHash: "33099ed3832ca3febb9bd134d64c35d18417abc363534abde4b4819b11a40c2b" },

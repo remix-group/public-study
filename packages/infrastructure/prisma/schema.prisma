@@ -122,6 +122,7 @@ model LegalDocument {
   officialUrl     String    @default("")
   contentHash     String?
   originalFileKey String?
+  originalFileName String?
   pipelineStatus  String    @default("RECEIVED")
   effectiveFrom   DateTime?
   effectiveUntil  DateTime?
@@ -163,6 +164,7 @@ model LegalProvision {
   parentProvisionId String?
   unitType          String    @default("article")
   anchor            String    @default("")
+  documentPath      String    @default("")
   order             Int       @default(0)
   validationStatus  String    @default("pending")
   editorialStatus   String    @default("draft")
@@ -173,6 +175,7 @@ model LegalProvision {
   effectiveFrom     DateTime?
   effectiveUntil    DateTime?
   status            String    @default("vigente")
+  extractionIssues  Json?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -187,6 +190,7 @@ model LegalProvision {
   referencesTo      LegalReference[] @relation("ReferenceToProvision")
 
   @@index([versionId, order])
+  @@index([versionId, documentPath])
   @@index([editorialStatus, validationStatus])
   @@map("legal_provisions")
 }

@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@dian-study/infrastructure";
 import { startStudySession } from "./start-study-session.js";
 import { submitQuestionAttempt } from "./submit-question-attempt.js";
-import { finishStudySession, getNextQuestion, getObjectiveStudyGuide, getStudentDashboard } from "./study-session-progress.js";
+import { finishStudySession, getNextQuestion, getObjectiveStudyGuide, getStudentDashboard, getStudyLibrary } from "./study-session-progress.js";
 import { hashPassword } from "../auth/crypto.js";
 import { loginStudent } from "../auth/service.js";
 import { createEditorialQuestion, setQuestionPublication } from "./editorial-content.js";
@@ -48,6 +48,18 @@ integration("study flow AC-001/002/003", () => {
     expect(guide.evidences[0]).toMatchObject({ provisionNumber: "Artículo 823", documentTitle: "Estatuto Tributario" });
     expect(guide.keyConcepts.length).toBeGreaterThan(0);
     expect(guide.questionCount).toBeGreaterThan(0);
+  });
+
+  it("preserves documentary provenance, literal content and stable library order", async () => {
+    const stored = await prisma.legalProvision.findFirstOrThrow({
+      where: { documentId: "material-route-opec-236828", unitType: "learning_route" },
+    });
+    const first = await getStudyLibrary({ documentId: "material-route-opec-236828", query: stored.content.slice(40, 90) });
+    const second = await getStudyLibrary({ documentId: "material-route-opec-236828", query: stored.content.slice(40, 90) });
+    expect(first.selectedDocument?.originalFileName).toBe("Ruta - Hoja 1.pdf");
+    expect(first.units.find(({ id }) => id === stored.id)?.content).toBe(stored.content);
+    expect(first.units.map(({ id }) => id)).toEqual(second.units.map(({ id }) => id));
+    expect(first.units[0]?.contentLayer).toBe("original");
   });
 
   it("creates a draft and records human approval when publishing", async () => {
@@ -129,7 +141,7 @@ integration("study flow AC-001/002/003", () => {
     expect(dashboard.objectives).toHaveLength(29);
     expect(dashboard.route).toHaveLength(6);
     expect(dashboard.route.reduce((total, block) => total + block.topics.length, 0)).toBe(25);
-    expect(dashboard.recommendedObjective?.questionCount).toBeGreaterThan(0);
+    expect(dashboard.recommendedObjective?.accessible).toBe(true);
     expect(dashboard.recentSessions).toHaveLength(1);
   });
 });

@@ -42,3 +42,16 @@ Las fechas de vigencia pueden ser desconocidas durante una importación masiva. 
 pedagógico, las cartillas y las extracciones visuales se conservan como tipos de unidad dentro
 de la misma cadena documental, pero no se presentan como autoridad jurídica hasta superar
 revisión editorial.
+
+## Fidelidad y procedencia documental
+
+- `originalFileKey` identifica la ubicación interna del archivo preservado.
+- `originalFileName` conserva el nombre exacto recibido de la fuente y nunca se infiere desde la ruta interna.
+- `LegalProvision.content` es la transcripción fiel e inmutable para su versión.
+- `documentPath` materializa la posición jerárquica para ordenar padres e hijos de forma estable.
+- `extractionIssues` registra incidencias automáticas separadas del texto; informa problemas potenciales sin corregir la transcripción.
+
+La biblioteca rotula `content` como **Transcripción original**. Las unidades pedagógicas o
+extracciones estructuradas se identifican como contenido derivado. Una futura corrección
+editorial requerirá una capa e historial separados; nunca reemplazará silenciosamente el
+contenido original.

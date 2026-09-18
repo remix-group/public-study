@@ -1,4 +1,4 @@
-import { prisma } from "@dian-study/infrastructure";
+import { Prisma, prisma } from "@dian-study/infrastructure";
 import { AttemptConflictError, AttemptNotFoundError } from "./submit-question-attempt.js";
 import { ensureTopicProgress } from "./progression.js";
 
@@ -97,7 +97,7 @@ export async function getStudentDashboard(studentId: string) {
       dimensions: { recall: state?.recall ?? 0, comprehension: state?.comprehension ?? 0, application: state?.application ?? 0, sourceAwareness: state?.sourceAwareness ?? 0, stability: state?.stability ?? 0 },
     };
   });
-  const dueReview = reviews.find((review) => review.scheduledAt <= new Date());
+  const dueReview = reviews.find((review) => review.scheduledAt <= new Date() && objectiveProgress.some((item) => item.objectiveId === review.objectiveId && item.accessible));
   const recommended = dueReview
     ? objectiveProgress.find((item) => item.objectiveId === dueReview.objectiveId)
     : [...objectiveProgress].filter((item) => item.accessible && item.questionCount > 0).sort((a, b) => a.mastery - b.mastery || a.totalAttempts - b.totalAttempts)[0]
@@ -206,41 +206,81 @@ export async function getObjectiveStudyGuide(objectiveId: string) {
   };
 }
 
-export async function getStudyLibrary(input: { documentId?: string; query?: string; page?: number }) {
+export async function getStudyLibrary(input: {
+  documentId?: string; versionId?: string; query?: string; page?: number;
+  unitType?: string; validationStatus?: string; status?: string; withIssues?: boolean;
+}) {
   const page = Math.max(1, Math.trunc(input.page ?? 1));
-  const take = 20;
+  const take = 12;
   const documents = await prisma.legalDocument.findMany({
     orderBy: { title: "asc" },
     select: {
       id: true, title: true, authority: true, documentType: true, pipelineStatus: true,
-      contentHash: true, originalFileKey: true, _count: { select: { provisions: true } },
+      source: true, officialUrl: true, contentHash: true, originalFileKey: true, originalFileName: true,
+      effectiveFrom: true, status: true, createdAt: true, updatedAt: true,
+      versions: { orderBy: [{ isCurrent: "desc" }, { createdAt: "desc" }], select: {
+        id: true, label: true, effectiveFrom: true, effectiveUntil: true, status: true,
+        sourceHash: true, isCurrent: true, createdAt: true,
+      } },
+      _count: { select: { provisions: true } },
     },
   });
   const selectedId = documents.some((document) => document.id === input.documentId) ? input.documentId! : documents[0]?.id;
-  if (!selectedId) return { documents: [], selectedDocument: null, units: [], page, totalPages: 0, totalUnits: 0 };
+  if (!selectedId) return { documents: [], selectedDocument: null, units: [], unitTypes: [], selectedVersionId: null, page, pageSize: take, totalDocumentUnits: 0, totalPages: 0, totalUnits: 0 };
+  const selectedDocument = documents.find((document) => document.id === selectedId)!;
+  const selectedVersionId = selectedDocument.versions.some((version) => version.id === input.versionId)
+    ? input.versionId!
+    : selectedDocument.versions.find((version) => version.isCurrent)?.id ?? selectedDocument.versions[0]?.id;
   const query = input.query?.trim();
-  const where = {
+  const where: Prisma.LegalProvisionWhereInput = {
     documentId: selectedId,
+    ...(selectedVersionId ? { versionId: selectedVersionId } : {}),
+    ...(input.unitType ? { unitType: input.unitType } : {}),
+    ...(input.validationStatus ? { validationStatus: input.validationStatus } : {}),
+    ...(input.status ? { status: input.status } : {}),
+    ...(input.withIssues ? { NOT: { extractionIssues: { equals: [] } } } : {}),
     ...(query ? { OR: [
       { number: { contains: query, mode: "insensitive" as const } },
       { title: { contains: query, mode: "insensitive" as const } },
+      { content: { contains: query, mode: "insensitive" as const } },
     ] } : {}),
   };
-  const [units, totalUnits] = await Promise.all([
+  const positionWhere: Prisma.LegalProvisionWhereInput = {
+    documentId: selectedId,
+    ...(selectedVersionId ? { versionId: selectedVersionId } : {}),
+  };
+  const [units, totalUnits, orderedUnits, unitTypes] = await Promise.all([
     prisma.legalProvision.findMany({
-      where, orderBy: [{ order: "asc" }, { createdAt: "asc" }], skip: (page - 1) * take, take,
+      where, orderBy: [{ documentPath: "asc" }, { order: "asc" }, { anchor: "asc" }, { id: "asc" }], skip: (page - 1) * take, take,
       select: {
-        id: true, unitType: true, number: true, title: true, content: true, citation: true,
-        validationStatus: true, editorialStatus: true,
+        id: true, versionId: true, parentProvisionId: true, unitType: true, anchor: true, documentPath: true, order: true,
+        number: true, title: true, content: true, citation: true, validationStatus: true,
+        editorialStatus: true, status: true, extractionIssues: true,
+        version: { select: { id: true, label: true, status: true, isCurrent: true } },
+        parent: { select: { id: true, unitType: true, number: true, title: true } },
+        _count: { select: { children: true } },
       },
     }),
     prisma.legalProvision.count({ where }),
+    prisma.legalProvision.findMany({ where: positionWhere, orderBy: [{ documentPath: "asc" }, { order: "asc" }, { anchor: "asc" }, { id: "asc" }], select: { id: true } }),
+    prisma.legalProvision.findMany({ where: positionWhere, distinct: ["unitType"], orderBy: { unitType: "asc" }, select: { unitType: true } }),
   ]);
+  const positionById = new Map(orderedUnits.map(({ id }, index) => [id, index + 1]));
+  const { _count: selectedCount, ...selectedDocumentData } = selectedDocument;
   return {
     documents: documents.map(({ _count, ...document }) => ({ ...document, unitCount: _count.provisions })),
-    selectedDocument: documents.find((document) => document.id === selectedId) ?? null,
-    units,
+    selectedDocument: { ...selectedDocumentData, unitCount: selectedCount.provisions },
+    selectedVersionId: selectedVersionId ?? null,
+    unitTypes: unitTypes.map(({ unitType }) => unitType),
+    units: units.map(({ _count, ...unit }) => ({
+      ...unit,
+      position: positionById.get(unit.id) ?? null,
+      childCount: _count.children,
+      contentLayer: ["study_guide", "study_topic", "visual_extraction"].includes(unit.unitType) ? "derived" : "original",
+    })),
     page,
+    pageSize: take,
+    totalDocumentUnits: orderedUnits.length,
     totalPages: Math.ceil(totalUnits / take),
     totalUnits,
   };
