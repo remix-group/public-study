@@ -89,7 +89,7 @@ learningRouter.get("/library", async (req, res, next) => {
 
 learningRouter.get("/objectives/:objectiveId/guide", async (req, res, next) => {
   try {
-    res.json(await getObjectiveStudyGuide(req.params.objectiveId));
+    res.json(await getObjectiveStudyGuide(req.params.objectiveId, res.locals.studentId));
   } catch (error) {
     if (error instanceof AttemptNotFoundError) return res.status(404).json({ error: error.message });
     next(error);

@@ -80,9 +80,34 @@ export interface StudyGuide {
   topic: { id: string; name: string };
   competency: { id: string; name: string };
   block: { id: string; name: string };
+  readiness: "READY" | "PARTIAL" | "IN_REVIEW";
+  readinessMessage: string;
+  estimatedMinutes: number;
+  outcome: string;
+  retrievalPrompt: string;
   studyProcess: Array<{ mode: string; title: string; description: string }>;
   keyConcepts: string[];
-  evidences: Array<{ id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string; documentTitle: string; officialUrl: string; validationStatus: string; editorialStatus: string }>;
+  lesson: Array<{
+    id: string; kind: "central_idea" | "rule" | "term" | "condition" | "source"; title: string;
+    content: string; sourceEvidenceIds: string[]; status: "reviewed" | "pending";
+  }>;
+  evidences: Array<{
+    id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string;
+    documentTitle: string; documentType: string; unitType: string; officialUrl: string;
+    validationStatus: string; editorialStatus: string; status: "reviewed" | "pending";
+    sourceKind: "primary" | "pedagogical";
+  }>;
+  workedExample: { id: string; situation: string; analysis: string; sourceEvidenceIds: string[] } | null;
+  checks: Array<{
+    id: string; prompt: string; expectedAnswer: string; feedback: string;
+    sourceEvidenceIds: string[]; status: "reviewed" | "pending";
+  }>;
+  practice: { available: boolean; questionCount: number };
+  applicationCase: {
+    id: string; scenario: string; expectedAnalysis: string; difficulty: number; sourceEvidenceIds: string[];
+  } | null;
+  closure: { title: string; prompts: string[] };
+  nextReview: string | null;
   questionCount: number;
 }
 export interface StudyLibrary {

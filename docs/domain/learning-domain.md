@@ -22,6 +22,14 @@ Este dominio define qué significa "aprender" dentro de la plataforma y cómo se
 
 `Question` tiene un ciclo editorial (`draft`, `published`, `archived`). Solo el contenido publicado puede utilizarse en sesiones. La publicación registra responsable y fecha de revisión.
 
+`StudyPackage` es un modelo de lectura derivado por `LearningObjective`; no es una entidad persistente. Reúne orientación, recuperación inicial, lectura estructurada, fuentes, ejemplo, comprobaciones, práctica disponible, aplicación, cierre y próxima revisión desde las entidades existentes. Sus estados son:
+
+- `READY`: existe fuente revisada, actividad y práctica o aplicación disponible;
+- `PARTIAL`: existe material revisado para estudiar, pero falta algún componente práctico;
+- `IN_REVIEW`: el material vinculado todavía no puede presentarse como fuente jurídica validada.
+
+El paquete conserva capas explícitas de fuente literal, explicación pedagógica, actividad y evaluación. Una unidad pendiente puede consultarse con advertencia, pero no se convierte en evidencia jurídica publicada.
+
 ## Conceptos Core del Algoritmo (Atributos)
 - `mastery`: Nivel de dominio adquirido por el estudiante (ej. 0.0 a 1.0).
 - `difficulty`: Nivel de dificultad calculada o inherente del ítem evaluativo.

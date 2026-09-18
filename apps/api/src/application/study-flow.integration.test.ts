@@ -48,6 +48,25 @@ integration("study flow AC-001/002/003", () => {
     expect(guide.evidences[0]).toMatchObject({ provisionNumber: "Artículo 823", documentTitle: "Estatuto Tributario" });
     expect(guide.keyConcepts.length).toBeGreaterThan(0);
     expect(guide.questionCount).toBeGreaterThan(0);
+    expect(guide.readiness).toBe("READY");
+    expect(guide.lesson.some(({ kind }) => kind === "central_idea")).toBe(true);
+    expect(guide.lesson.filter(({ kind }) => kind === "source").every(({ sourceEvidenceIds }) => sourceEvidenceIds.length > 0)).toBe(true);
+    expect(guide.checks[0]?.sourceEvidenceIds.length).toBeGreaterThan(0);
+    expect(guide.practice).toEqual({ available: true, questionCount: guide.questionCount });
+  });
+
+  it("uses the same honest study-package template for route material still under review", async () => {
+    const guide = await getObjectiveStudyGuide("objective-route-01");
+    expect(guide.readiness).toBe("IN_REVIEW");
+    expect(guide.evidences).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sourceKind: "pedagogical", status: "pending" }),
+    ]));
+    expect(guide.lesson.some(({ kind }) => kind === "central_idea")).toBe(true);
+    expect(guide.lesson.filter(({ kind }) => kind !== "source").every(({ status }) => status === "pending")).toBe(true);
+    expect(guide.checks.length).toBeGreaterThan(0);
+    expect(guide.practice.available).toBe(false);
+    expect(guide.workedExample).toBeNull();
+    expect(guide.applicationCase).toBeNull();
   });
 
   it("preserves documentary provenance, literal content and stable library order", async () => {

@@ -141,7 +141,7 @@ export async function getStudentDashboard(studentId: string) {
   };
 }
 
-export async function getObjectiveStudyGuide(objectiveId: string) {
+export async function getObjectiveStudyGuide(objectiveId: string, studentId?: string) {
   const objective = await prisma.learningObjective.findFirst({
     where: { id: objectiveId, status: "active", topic: { status: "active" } },
     include: {
@@ -158,20 +158,31 @@ export async function getObjectiveStudyGuide(objectiveId: string) {
           evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } },
         },
       },
+      cases: {
+        orderBy: [{ difficulty: "asc" }, { createdAt: "asc" }],
+        include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } },
+      },
     },
   });
   if (!objective) throw new AttemptNotFoundError("Learning objective not found");
 
   const evidenceById = new Map<string, {
     id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string;
-    documentTitle: string; officialUrl: string; validationStatus: string; editorialStatus: string;
+    documentTitle: string; documentType: string; unitType: string; officialUrl: string;
+    validationStatus: string; editorialStatus: string; status: "reviewed" | "pending";
+    sourceKind: "primary" | "pedagogical";
   }>();
   const addEvidence = (evidence: typeof objective.concepts[number]["evidences"][number]["evidence"]) => {
+    const reviewed = evidence.provision.validationStatus === "approved" && evidence.provision.editorialStatus === "published";
+    const pedagogical = ["study_manual", "learning_route"].includes(evidence.provision.document.documentType)
+      || ["study_guide", "study_topic", "learning_route", "visual_extraction"].includes(evidence.provision.unitType);
     evidenceById.set(evidence.id, {
       id: evidence.id, citation: evidence.citation, content: evidence.content,
       provisionNumber: evidence.provision.number, provisionTitle: evidence.provision.title,
-      documentTitle: evidence.provision.document.title, officialUrl: evidence.provision.document.officialUrl,
+      documentTitle: evidence.provision.document.title, documentType: evidence.provision.document.documentType,
+      unitType: evidence.provision.unitType, officialUrl: evidence.provision.document.officialUrl,
       validationStatus: evidence.provision.validationStatus, editorialStatus: evidence.provision.editorialStatus,
+      status: reviewed ? "reviewed" : "pending", sourceKind: pedagogical ? "pedagogical" : "primary",
     });
   };
   for (const concept of objective.concepts) {
@@ -184,15 +195,83 @@ export async function getObjectiveStudyGuide(objectiveId: string) {
       addEvidence(evidence);
     }
   }
+  for (const studyCase of objective.cases) {
+    for (const link of studyCase.evidences) addEvidence(link.evidence);
+  }
   const keyConcepts = [...new Set([
     ...objective.concepts.map((concept) => concept.description.trim()),
     ...objective.questions.map((question) => question.explanation.trim()),
   ].filter(Boolean))].slice(0, 6);
+  const evidences = [...evidenceById.values()];
+  const reviewedEvidenceIds = new Set(evidences.filter((evidence) => evidence.status === "reviewed").map((evidence) => evidence.id));
+  const conceptEvidenceIds = (concept: typeof objective.concepts[number]) => concept.evidences.map(({ evidence }) => evidence.id);
+  const questionEvidenceIds = (question: typeof objective.questions[number]) => question.evidences.map(({ evidence }) => evidence.id).filter((id) => reviewedEvidenceIds.has(id));
+  const centralEvidenceIds = [...new Set(objective.concepts.flatMap(conceptEvidenceIds))];
+  const lesson = [
+    {
+      id: `${objective.id}-central-idea`, kind: "central_idea" as const, title: "Idea central",
+      content: objective.description, sourceEvidenceIds: centralEvidenceIds,
+      status: centralEvidenceIds.some((id) => reviewedEvidenceIds.has(id)) ? "reviewed" as const : "pending" as const,
+    },
+    ...objective.questions.slice(0, 2).map((question, index) => {
+      const sourceEvidenceIds = questionEvidenceIds(question);
+      return {
+        id: `${objective.id}-rule-${index + 1}`, kind: "rule" as const, title: index ? `Regla complementaria ${index + 1}` : "Regla o procedimiento",
+        content: question.explanation, sourceEvidenceIds,
+        status: sourceEvidenceIds.length ? "reviewed" as const : "pending" as const,
+      };
+    }),
+    ...objective.concepts.slice(0, 6).map((concept) => {
+      const sourceEvidenceIds = conceptEvidenceIds(concept);
+      return {
+        id: concept.id, kind: "term" as const, title: concept.name, content: concept.description,
+        sourceEvidenceIds, status: sourceEvidenceIds.some((id) => reviewedEvidenceIds.has(id)) ? "reviewed" as const : "pending" as const,
+      };
+    }),
+    ...evidences.map((evidence) => ({
+      id: `source-${evidence.id}`, kind: "source" as const,
+      title: evidence.sourceKind === "primary" ? "Fuente primaria" : "Material pedagógico",
+      content: evidence.content, sourceEvidenceIds: [evidence.id], status: evidence.status,
+    })),
+  ].filter((item, index, items) => item.content.trim() && items.findIndex((candidate) => candidate.kind === item.kind && candidate.content === item.content) === index);
+  const checks = objective.concepts.slice(0, 2).map((concept, index) => {
+    const sourceEvidenceIds = conceptEvidenceIds(concept);
+    return {
+      id: `${objective.id}-check-${index + 1}`,
+      prompt: `Sin mirar la lectura, explica con tus propias palabras: ${concept.name}.`,
+      expectedAnswer: concept.description,
+      feedback: `Compara tu respuesta con esta idea esencial y vuelve a la fuente si omitiste una condición: ${concept.description}`,
+      sourceEvidenceIds,
+      status: sourceEvidenceIds.some((id) => reviewedEvidenceIds.has(id)) ? "reviewed" as const : "pending" as const,
+    };
+  });
+  const supportedCase = objective.cases.find((studyCase) => studyCase.evidences.some(({ evidence }) => reviewedEvidenceIds.has(evidence.id))) ?? null;
+  const caseEvidenceIds = supportedCase
+    ? supportedCase.evidences.map(({ evidence }) => evidence.id).filter((id) => reviewedEvidenceIds.has(id))
+    : [];
+  const hasReviewedSource = evidences.some((evidence) => evidence.status === "reviewed");
+  const hasStudyMaterial = lesson.length > 1 || evidences.length > 0;
+  const readiness = hasReviewedSource && checks.length > 0 && (objective.questions.length > 0 || supportedCase)
+    ? "READY"
+    : hasReviewedSource && hasStudyMaterial ? "PARTIAL" : "IN_REVIEW";
+  const nextReview = studentId
+    ? await prisma.reviewSchedule.findUnique({ where: { studentId_objectiveId: { studentId, objectiveId } } })
+    : null;
+  const words = lesson.reduce((total, item) => total + item.content.split(/\s+/).filter(Boolean).length, 0);
   return {
     objective: { id: objective.id, name: objective.name, description: objective.description },
     topic: { id: objective.topic.id, name: objective.topic.name },
     block: { id: objective.topic.block.id, name: objective.topic.block.name },
     competency: { id: objective.topic.block.competency.id, name: objective.topic.block.competency.name },
+    readiness,
+    readinessMessage: readiness === "READY"
+      ? "La lectura, sus fuentes y una actividad de práctica o aplicación están disponibles."
+      : readiness === "PARTIAL"
+        ? "Puedes estudiar esta lectura y sus fuentes; algunos ejemplos, casos o actividades aún están en preparación."
+        : "Este tema está incorporado a la ruta, pero su material permanece en revisión editorial y no se presenta como fuente jurídica validada.",
+    estimatedMinutes: Math.min(25, Math.max(5, Math.ceil(words / 180) + 4)),
+    outcome: objective.description,
+    retrievalPrompt: `Antes de leer, explica qué recuerdas sobre: ${objective.name}.`,
     studyProcess: [
       { mode: "RETRIEVAL", title: "Recupera", description: "Intenta explicar la regla antes de volver a leerla." },
       { mode: "LEARN", title: "Comprende", description: "Contrasta tu respuesta con los conceptos y la fuente oficial." },
@@ -201,7 +280,23 @@ export async function getObjectiveStudyGuide(objectiveId: string) {
       { mode: "REVIEW", title: "Mantén", description: "Vuelve a recuperar el conocimiento cuando el sistema lo programe." },
     ],
     keyConcepts,
-    evidences: [...evidenceById.values()],
+    lesson,
+    evidences,
+    workedExample: supportedCase ? {
+      id: supportedCase.id, situation: supportedCase.scenario, analysis: supportedCase.expectedAnalysis,
+      sourceEvidenceIds: caseEvidenceIds,
+    } : null,
+    checks,
+    practice: { available: objective.questions.length > 0, questionCount: objective.questions.length },
+    applicationCase: supportedCase ? {
+      id: supportedCase.id, scenario: supportedCase.scenario, expectedAnalysis: supportedCase.expectedAnalysis,
+      difficulty: supportedCase.difficulty, sourceEvidenceIds: caseEvidenceIds,
+    } : null,
+    closure: {
+      title: "Recupera antes de cerrar",
+      prompts: ["Explica la idea principal sin mirar.", "Menciona dos condiciones, pasos o excepciones.", "Describe una aplicación posible.", "Identifica la fuente que respalda lo estudiado."],
+    },
+    nextReview: nextReview?.scheduledAt ?? null,
     questionCount: objective.questions.length,
   };
 }

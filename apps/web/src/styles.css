@@ -191,6 +191,65 @@ button { cursor: pointer; }
 .guide-sidebar > div span { color: #6c7625; font-size: 9px; font-weight: 800; text-transform: uppercase; }
 .guide-sidebar > div p { color: #536058; font-size: 11px; line-height: 1.55; margin-bottom: 0; }
 
+.orientation-page { max-width: 1050px; margin: 0 auto; padding: 50px 30px 100px; }
+.orientation-card { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(230px, .55fr); overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--paper); box-shadow: 0 25px 70px rgba(38,61,51,.08); }
+.orientation-copy { padding: clamp(30px, 6vw, 60px); }
+.orientation-copy h1 { max-width: 760px; margin: 14px 0; font-family: "Fraunces", serif; font-size: clamp(38px, 6vw, 58px); line-height: 1.08; }
+.orientation-copy > p { color: var(--ink-muted); font-size: 16px; line-height: 1.65; }
+.orientation-card > aside { display: grid; align-content: center; gap: 10px; padding: 30px; background: var(--green-950); color: white; }
+.orientation-card > aside > div { display: grid; gap: 4px; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.12); }
+.orientation-card > aside > div:last-child { border-bottom: 0; }
+.orientation-card > aside small { color: #bcd0c7; font-size: 9px; text-transform: uppercase; }
+.orientation-card > aside strong { color: var(--lime); font-family: "Fraunces", serif; font-size: 19px; }
+.orientation-card > footer { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 30px; align-items: center; padding: 22px 30px; border-top: 1px solid var(--line); background: #edf3ec; }
+.orientation-card > footer small { color: var(--green-600); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.orientation-card > footer p { max-width: 650px; margin: 5px 0 0; color: var(--ink-muted); font-size: 12px; }
+.readiness-badge { display: inline-flex; width: fit-content; margin-top: 12px; padding: 6px 10px; border-radius: 20px; background: #dff2e6; color: #176142; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.readiness-badge.partial { background: #fff1d8; color: #8d601b; }
+.readiness-badge.in_review { background: #f1e7cf; color: #76591e; }
+.material-notice { display: flex; gap: 14px; align-items: flex-start; margin-top: 20px; padding: 14px 16px; border-left: 4px solid #3a8f6e; border-radius: 0 11px 11px 0; background: #edf6f0; }
+.material-notice strong { flex: 0 0 auto; color: #176142; font-size: 10px; text-transform: uppercase; }
+.material-notice span { color: #476158; font-size: 11px; line-height: 1.5; }
+.material-notice.partial, .material-notice.in_review { border-left-color: #d4a13a; background: #fff7e8; }
+.material-notice.partial strong, .material-notice.in_review strong { color: #8d601b; }
+.lesson-blocks, .check-list { display: grid; gap: 12px; margin: 18px 0 0 54px; }
+.lesson-block { padding: 19px; border: 1px solid var(--line); border-left: 4px solid var(--green-600); border-radius: 12px; background: var(--paper); }
+.lesson-block.pending { border-left-color: #d4a13a; }
+.lesson-block header { display: flex; justify-content: space-between; gap: 15px; }
+.lesson-block header span, .lesson-block header b { color: var(--green-600); font-size: 8px; text-transform: uppercase; }
+.lesson-block.pending header b { color: #8d601b; }
+.lesson-block h3 { margin: 9px 0 6px; font-family: "Fraunces", serif; font-size: 19px; }
+.lesson-block p { margin: 0; color: #40564e; font-size: 13px; line-height: 1.65; }
+.lesson-block footer { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 13px; }
+.lesson-block footer span { padding: 5px 7px; border-radius: 6px; background: #edf3ec; color: var(--ink-muted); font-size: 8px; }
+.empty-study-state { margin: 18px 0 0 54px; padding: 20px; border: 1px dashed #c8d1cb; border-radius: 12px; background: #f7f8f4; }
+.empty-study-state strong { font-family: "Fraunces", serif; font-size: 17px; }
+.empty-study-state p { margin: 7px 0 0; color: var(--ink-muted); font-size: 11px; line-height: 1.55; }
+.worked-example, .application-card { margin: 18px 0 0 54px; padding: 22px; border-radius: 14px; background: #f2f5ed; }
+.worked-example > div { padding: 15px; border-radius: 10px; background: white; }
+.worked-example > span { display: block; padding: 8px 20px; color: var(--green-600); font-weight: 800; }
+.worked-example small { color: var(--green-600); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.worked-example p { margin: 7px 0 0; color: #40564e; font-size: 12px; line-height: 1.6; }
+.worked-example footer { margin-top: 13px; color: var(--ink-muted); font-size: 8px; }
+.check-list article { display: grid; gap: 12px; padding: 20px; border: 1px solid var(--line); border-radius: 13px; background: var(--paper); }
+.check-list textarea, .closure-section textarea { width: 100%; padding: 14px; border: 1px solid var(--line); border-radius: 10px; resize: vertical; background: #fbfbf7; color: var(--green-950); font: inherit; font-size: 12px; line-height: 1.5; }
+.check-list .text-button { width: fit-content; margin: 0; color: var(--green-600); font-weight: 800; }
+.check-status { width: fit-content; color: #176142; font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.check-status.pending { color: #8d601b; }
+.check-feedback { padding: 14px; border-left: 3px solid var(--lime); background: #f2f4e5; }
+.check-feedback small { color: #6c7625; font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.check-feedback p { margin: 7px 0; color: #40564e; font-size: 11px; line-height: 1.55; }
+.check-feedback span { color: var(--ink-muted); font-size: 8px; }
+.application-card > strong { display: block; line-height: 1.55; }
+.application-card details { margin-top: 14px; }
+.application-card summary { color: var(--green-600); cursor: pointer; font-size: 10px; font-weight: 800; }
+.application-card p { color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
+.closure-section { padding: 25px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
+.closure-section ul { margin: 18px 0; padding-left: 72px; color: var(--ink-muted); font-size: 12px; line-height: 1.8; }
+.next-review { display: grid; gap: 4px; margin-top: 14px; padding: 14px; border-radius: 10px; background: #edf3ec; }
+.next-review span { color: var(--green-600); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.next-review strong { font-size: 12px; }
+
 .center-state { min-height: calc(100vh - 78px); display: grid; place-content: center; text-align: center; justify-items: center; padding: 30px; }
 .center-state h2 { font-family: "Fraunces", serif; font-size: 32px; margin-bottom: 4px; }
 .center-state p { color: var(--ink-muted); }
@@ -598,6 +657,9 @@ button { cursor: pointer; }
 .norm-status.derogado { background: #ffe4dc; color: #91402c; }
 
 @media (max-width: 850px) {
+  .orientation-card { grid-template-columns: 1fr; }
+  .orientation-card > footer { align-items: stretch; flex-direction: column; }
+  .orientation-card > aside { grid-template-columns: 1fr 1fr; }
   .next-step { grid-template-columns: 1fr; }
   .next-step > aside { border-top: 1px solid rgba(255,255,255,.16); border-left: 0; }
   .route-context { grid-template-columns: 1fr; }
@@ -667,7 +729,11 @@ button { cursor: pointer; }
   .guide-page { padding: 30px 20px 70px; }
   .guide-header { grid-template-columns: 1fr; }
   .guide-header aside { width: 100%; }
-  .concept-list, .guide-evidence { margin-left: 0; }
+  .concept-list, .guide-evidence, .lesson-blocks, .check-list, .empty-study-state, .worked-example, .application-card { margin-left: 0; }
+  .orientation-page { padding: 30px 20px 70px; }
+  .orientation-card > aside { grid-template-columns: 1fr; }
+  .orientation-card > footer { padding: 20px; }
+  .closure-section ul { padding-left: 20px; }
   .guide-ready { display: grid; }
   .student-home { padding: 32px 20px 70px; }
   .student-greeting { align-items: flex-start; }
