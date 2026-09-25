@@ -18,6 +18,86 @@ const lessonLabels: Record<StudyGuide["lesson"][number]["kind"], string> = {
   source: "Fuente",
 };
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function withoutRepeatedHeading(content: string, provisionNumber: string, provisionTitle: string) {
+  let remaining = content.trim();
+  remaining = remaining.replace(new RegExp(`^${matchableHeading(provisionNumber)}\\s*[.:\\-–—]*\\s*`, "i"), "");
+  const title = provisionTitle.trim().replace(/[.:]+$/, "");
+  if (title) remaining = remaining.replace(new RegExp(`^${matchableHeading(title)}\\s*[.:\\-–—]*\\s*`, "i"), "");
+  return remaining.trim();
+}
+
+function normalizeText(value: string) {
+  return value.replace(/\s+/g, " ").replace(/\.{3,}/g, ".").trim();
+}
+
+function fallbackSourceTitle(content: string) {
+  const titleByTopic: Array<[RegExp, string]> = [
+    [/garant|devoluci|compens/i, "Requisitos de devolución y compensación"],
+    [/mandamiento de pago|cobro coactivo/i, "Inicio del cobro coactivo"],
+    [/embarg|secuestro|inembarg/i, "Embargo y verificación previa"],
+    [/negociaci[oó]n|reorganiz/i, "Negociación y reorganización"],
+    [/liquidaci[oó]n|acreencia/i, "Liquidación y acreencias"],
+    [/normalizaci[oó]n|depuraci[oó]n|cartera/i, "Normalización de saldos"],
+    [/control extensivo|amplia cobertura/i, "Control extensivo de obligaciones"],
+    [/honestidad|respeto|compromiso|diligencia|justicia|integridad/i, "Valores de integridad"],
+    [/mipg|dimensi[oó]n|planeaci[oó]n y gesti[oó]n/i, "Gestión institucional con MIPG"],
+    [/tabla de retenci[oó]n|gesti[oó]n documental|archivo/i, "Gestión documental y archivo"],
+    [/servicio al ciudadano|relaci[oó]n estado-ciudadano/i, "Servicio al ciudadano"],
+    [/escuchar|lenguaje.*claro|orientaci[oó]n/i, "Orientación clara y respetuosa"],
+    [/herramientas? inform[aá]ticas?|aplicaciones.*datos/i, "Uso de herramientas informáticas"],
+  ];
+  return titleByTopic.find(([pattern]) => pattern.test(content))?.[1] ?? "Aspecto clave de la fuente";
+}
+
+function documentSourceTitle(documentTitle: string, content: string) {
+  const labels: Array<[RegExp, string]> = [
+    [/Manual Operativo MIPG/i, "Dimensiones y políticas de gestión"],
+    [/C[oó]digo [ÉE]tica DIAN/i, "Valores de integridad DIAN"],
+    [/ley-594|AcuerdoAGN/i, "Gestión documental y archivo"],
+    [/Lineamientos pol[ií]tica/i, "Política de servicio al ciudadano"],
+    [/Manual del servicio|Protocolo de Servicio|ABC Servicio/i, "Orientación y atención al ciudadano"],
+    [/Cartilla Insolvencia|GUIA ORIENTACION/i, "Proceso y régimen de insolvencia"],
+    [/PR-COT-0372/i, "Normalización de saldos"],
+    [/PR-COT-0382/i, "Control extensivo de obligaciones"],
+  ];
+  return labels.find(([pattern]) => pattern.test(documentTitle))?.[1] ?? fallbackSourceTitle(content);
+}
+
+function shouldDisplaySource(evidence: StudyGuide["evidences"][number]) {
+  const raw = evidence.content;
+  const marker = `${evidence.provisionTitle} ${raw}`.toLowerCase();
+  if (/bibliograf|harvard business review|unesco|sanguinetti|secretariado pefa/.test(marker)) return false;
+  if (/manual completo|tema 25|tabla de contenido/.test(marker)) return false;
+  if (/\.{4,}\s*\d+/.test(raw)) return false;
+  return normalizeText(raw).length >= 55;
+}
+
+function sourcePresentation(evidence: StudyGuide["evidences"][number]) {
+  const rawContent = evidence.content.trim();
+  const number = normalizeText(evidence.provisionNumber);
+  const storedTitle = normalizeText(evidence.provisionTitle);
+  const contentTitle = rawContent.match(new RegExp(`^${matchableHeading(number)}\\s*[.:\\-–—]+\\s*([^.!?\\n]+)`, "i"))?.[1];
+  const candidate = normalizeText(contentTitle || storedTitle);
+  const genericTitle = /^(bibliograf[ií]a|referencias|tabla de contenido|manual completo|extracci[oó]n visual|documentos relacionados|definiciones y siglas)$/i.test(candidate);
+  const title = !genericTitle && candidate.length >= 4 && candidate.length <= 76 && !/https?:\/\//i.test(candidate)
+    ? candidate.replace(/[.:]+$/, "")
+    : documentSourceTitle(evidence.documentTitle, `${storedTitle} ${rawContent}`);
+  const fullText = normalizeText(withoutRepeatedHeading(rawContent, number, storedTitle)) || normalizeText(rawContent);
+  const previewLimit = 420;
+  const cut = fullText.length > previewLimit ? fullText.slice(0, previewLimit).replace(/[,:;\s]+\S*$/, "").trimEnd() : fullText;
+  const preview = `${cut}${cut.length < fullText.length ? "…" : ""}` || "Consulta la transcripción completa de esta fuente.";
+  const hasArticleNumber = /^(art[ií]culo|t[ií]tulo|cap[ií]tulo)\b/i.test(number);
+  return { title: hasArticleNumber ? `${number} · ${title}` : title, preview, fullText };
+}
+
+function matchableHeading(value: string) {
+  return escapeRegExp(value.trim()).replace(/\s+/g, "\\s+");
+}
+
 export function GuidedStudy({ objectiveId, onBack, onPractice }: { objectiveId: string; onBack: () => void; onPractice: () => void }) {
   const [guide, setGuide] = useState<StudyGuide | null>(null);
   const [error, setError] = useState("");
@@ -39,6 +119,7 @@ export function GuidedStudy({ objectiveId, onBack, onPractice }: { objectiveId: 
   const sourceById = new Map(guide.evidences.map((evidence) => [evidence.id, evidence]));
   const reviewedSources = guide.evidences.filter((evidence) => evidence.status === "reviewed");
   const pendingSources = guide.evidences.filter((evidence) => evidence.status === "pending");
+  const displayedSources = guide.evidences.filter(shouldDisplaySource);
   const lesson = guide.lesson.filter((item) => item.kind !== "source");
 
   if (phase === "orientation") return <main className="orientation-page">
@@ -66,13 +147,13 @@ export function GuidedStudy({ objectiveId, onBack, onPractice }: { objectiveId: 
 
       <section className="structured-lesson"><div className="guide-section-title"><span>02</span><div><small>Lectura guiada</small><h2>Comprende la idea, la regla y sus términos</h2></div></div><div className="lesson-blocks">{lesson.length ? lesson.map((item) => <article className={`lesson-block ${item.status}`} key={item.id}><header><span>{lessonLabels[item.kind]}</span><b>{item.status === "reviewed" ? "Respaldado" : "En revisión"}</b></header><h3>{item.title}</h3><p>{item.content}</p>{item.sourceEvidenceIds.length > 0 && <footer>{item.sourceEvidenceIds.map((id) => sourceById.get(id)).filter(Boolean).map((evidence) => <span key={evidence!.id}>{evidence!.citation}</span>)}</footer>}</article>) : <div className="empty-study-state"><strong>La lectura estructurada está en preparación</strong><p>Puedes consultar el material documental asociado sin confundirlo con una explicación jurídica revisada.</p></div>}</div></section>
 
-      <section className="norm-section"><div className="guide-section-title"><span>03</span><div><small>Fuente y procedencia</small><h2>Contrasta cada afirmación con su documento</h2></div></div>{guide.evidences.length ? guide.evidences.map((evidence) => <article className={`guide-evidence ${evidence.status}`} key={evidence.id}><header><div><small>{evidence.documentTitle}</small><h3>{evidence.provisionNumber} · {evidence.provisionTitle}</h3></div><div className="source-actions"><span>{evidence.status === "reviewed" ? "Fuente oficial revisada" : evidence.sourceKind === "pedagogical" ? "Material pedagógico incorporado" : "Material pendiente de revisión"}</span>{evidence.officialUrl && <a href={evidence.officialUrl} target="_blank" rel="noreferrer">Fuente oficial ↗</a>}</div></header><blockquote>{evidence.content}</blockquote><footer>{evidence.citation}</footer></article>) : <div className="empty-study-state"><strong>No hay una fuente vinculada todavía</strong><p>El objetivo permanece en la ruta, pero no se mostrará contenido inventado ni se habilitará una evaluación sin evidencia.</p></div>}</section>
+      <section className="norm-section"><div className="guide-section-title"><span>03</span><div><small>Fuente y procedencia</small><h2>Contrasta cada afirmación con su documento</h2></div></div>{displayedSources.length ? displayedSources.map((evidence) => { const source = sourcePresentation(evidence); return <article className={`guide-evidence ${evidence.status}`} key={evidence.id}><header><div><small>{evidence.documentTitle}</small><strong className="source-title">{source.title}</strong></div><div className="source-actions"><span>{evidence.status === "reviewed" ? "Fuente oficial revisada" : evidence.sourceKind === "pedagogical" ? "Material pedagógico incorporado" : "Material pendiente de revisión"}</span>{evidence.officialUrl && <a href={evidence.officialUrl} target="_blank" rel="noreferrer">Fuente oficial ↗</a>}</div></header><div className="source-extract"><small>Extracto relevante</small><p>{source.preview}</p></div>{source.fullText.length > source.preview.length && <details className="source-transcript"><summary>Ver transcripción completa</summary><blockquote>{source.fullText}</blockquote></details>}<footer>{evidence.citation}</footer></article>; }) : <div className="empty-study-state"><strong>No hay un extracto breve para mostrar</strong><p>La evidencia permanece vinculada al tema y se conserva en sus actividades y citas.</p></div>}</section>
 
       <section className="worked-section"><div className="guide-section-title"><span>04</span><div><small>Ejemplo trabajado</small><h2>Observa cómo se razona antes de practicar</h2></div></div>{guide.workedExample ? <article className="worked-example"><div><small>Situación</small><p>{guide.workedExample.situation}</p></div><span>↓</span><div><small>Análisis respaldado</small><p>{guide.workedExample.analysis}</p></div><footer>{guide.workedExample.sourceEvidenceIds.map((id) => sourceById.get(id)?.citation).filter(Boolean).join(" · ")}</footer></article> : <div className="empty-study-state"><strong>El ejemplo trabajado aún no está publicado</strong><p>La lectura y las fuentes siguen disponibles. No generamos un caso artificial sin evidencia revisada.</p></div>}</section>
 
       <section className="checks-section"><div className="guide-section-title"><span>05</span><div><small>Comprobación breve</small><h2>Recupera la idea sin mirar</h2></div></div>{guide.checks.length ? <div className="check-list">{guide.checks.map((check) => <article key={check.id}><span className={`check-status ${check.status}`}>{check.status === "reviewed" ? "Fuente revisada" : "Material en revisión"}</span><strong>{check.prompt}</strong><textarea rows={3} value={checkAnswers[check.id] ?? ""} onChange={(event) => setCheckAnswers((current) => ({ ...current, [check.id]: event.target.value }))} placeholder="Escribe lo que recuerdas…"/><button className="text-button" onClick={() => setRevealedChecks((current) => ({ ...current, [check.id]: true }))}>Comparar mi respuesta</button>{revealedChecks[check.id] && <div className="check-feedback"><small>Retroalimentación</small><p>{check.feedback}</p>{check.sourceEvidenceIds.length > 0 && <span>{check.sourceEvidenceIds.map((id) => sourceById.get(id)?.citation).filter(Boolean).join(" · ")}</span>}</div>}</article>)}</div> : <div className="empty-study-state"><strong>Las comprobaciones están en preparación</strong><p>Repasa la idea central con tus propias palabras antes de continuar.</p></div>}</section>
 
-      <section className="application-section"><div className="guide-section-title"><span>06</span><div><small>Aplicación</small><h2>Lleva la regla a una situación</h2></div></div>{guide.applicationCase ? <article className="application-card"><strong>{guide.applicationCase.scenario}</strong><details><summary>Ver análisis esperado</summary><p>{guide.applicationCase.expectedAnalysis}</p></details></article> : <div className="empty-study-state"><strong>El caso situacional está en preparación</strong><p>Se habilitará cuando tenga hechos explícitos, análisis editorial y evidencia trazable.</p></div>}</section>
+      <section className="application-section"><div className="guide-section-title"><span>06</span><div><small>Aplicación</small><h2>Lleva la regla a una situación</h2></div></div>{guide.applicationCase ? <article className="application-card"><strong>{guide.applicationCase.scenario}</strong><details><summary>Ver análisis esperado</summary><p>{guide.applicationCase.expectedAnalysis}</p></details><footer>{guide.applicationCase.sourceEvidenceIds.map((id) => sourceById.get(id)?.citation).filter(Boolean).join(" · ")}</footer></article> : <div className="empty-study-state"><strong>El caso situacional está en preparación</strong><p>Se habilitará cuando tenga hechos explícitos, análisis editorial y evidencia trazable.</p></div>}</section>
 
       <section className="closure-section"><div className="guide-section-title"><span>07</span><div><small>Cierre y próxima recuperación</small><h2>{guide.closure.title}</h2></div></div><ul>{guide.closure.prompts.map((prompt) => <li key={prompt}>{prompt}</li>)}</ul><textarea rows={5} value={closureAnswer} onChange={(event) => setClosureAnswer(event.target.value)} placeholder="Resume aquí sin volver a consultar la lectura…"/><div className="next-review"><span>Próxima revisión</span><strong>{guide.nextReview ? new Date(guide.nextReview).toLocaleString("es-CO", { dateStyle: "long", timeStyle: "short" }) : "Se programará después de tu primera práctica"}</strong></div></section>
 

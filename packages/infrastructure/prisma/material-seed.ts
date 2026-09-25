@@ -4,6 +4,7 @@ import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { createGunzip } from "node:zlib";
 import { curriculum236828, routeMarkdown } from "./curriculum-236828.js";
+import { curatedTopics12To24 } from "./curated-topic-content.js";
 
 type Row = Record<string, string | null>;
 
@@ -370,7 +371,211 @@ async function seedCurriculum(prisma: PrismaClient, documentRows: Row[]) {
     }
   }
 
+  // Curated practice set for topic 11, grounded in the ET provisions already imported.
+  const statute = await prisma.legalDocument.findFirstOrThrow({ where: { title: { contains: "Decreto-Ley-624" } } });
+  const statuteProvisions = new Map(
+    (await prisma.legalProvision.findMany({
+      where: { documentId: statute.id, number: { in: ["ARTÍCULO 800", "ARTÍCULO 803", "ARTÍCULO 804"] } },
+    })).map((provision) => [provision.number, provision]),
+  );
+  const topic11Questions = [
+    {
+      id: "question-route-11-800-1", provisionNumber: "ARTÍCULO 800", difficulty: 0.35, errorType: "CONCEPT_CONFUSION",
+      stem: "Según el artículo 800 del Estatuto Tributario, ¿dónde deben efectuarse los pagos de impuestos, anticipos y retenciones?",
+      options: [
+        { key: "A", text: "En los lugares que señale el Gobierno Nacional" },
+        { key: "B", text: "Únicamente en la oficina de cada contribuyente" },
+        { key: "C", text: "Solo ante un juez administrativo" },
+        { key: "D", text: "En cualquier establecimiento comercial no autorizado" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 800 dispone que el pago debe efectuarse en los lugares que señale el Gobierno Nacional.",
+    },
+    {
+      id: "question-route-11-800-2", provisionNumber: "ARTÍCULO 800", difficulty: 0.45, errorType: "SOURCE_AWARENESS",
+      stem: "¿A través de qué entidades puede el Gobierno Nacional recaudar total o parcialmente los tributos administrados por la DIAN, según el artículo 800?",
+      options: [
+        { key: "A", text: "A través de bancos y demás entidades financieras" },
+        { key: "B", text: "Exclusivamente mediante empresas de mensajería" },
+        { key: "C", text: "Solo mediante notarías" },
+        { key: "D", text: "Únicamente mediante pagos en especie" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 800 autoriza el recaudo total o parcial a través de bancos y demás entidades financieras.",
+    },
+    {
+      id: "question-route-11-803-1", provisionNumber: "ARTÍCULO 803", difficulty: 0.4, errorType: "PROCEDURE_ORDER_ERROR",
+      stem: "¿Qué fecha se tiene como fecha de pago del impuesto para cada contribuyente, de acuerdo con el artículo 803?",
+      options: [
+        { key: "A", text: "La fecha en que los valores imputables ingresan a las oficinas de impuestos o a los bancos autorizados" },
+        { key: "B", text: "La fecha en que se imprime la declaración" },
+        { key: "C", text: "La fecha en que se inicia una fiscalización" },
+        { key: "D", text: "La fecha en que se solicita un certificado bancario" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 803 fija como fecha de pago aquella en que los valores imputables ingresan a las oficinas de impuestos o a los bancos autorizados.",
+    },
+    {
+      id: "question-route-11-803-2", provisionNumber: "ARTÍCULO 803", difficulty: 0.55, errorType: "CONCEPT_CONFUSION",
+      stem: "¿Cuál de los siguientes valores puede ser tenido en cuenta para establecer la fecha de pago conforme al artículo 803?",
+      options: [
+        { key: "A", text: "Un valor recibido inicialmente como simple depósito o buena cuenta" },
+        { key: "B", text: "Una promesa verbal de pago no registrada" },
+        { key: "C", text: "Una obligación privada sin relación tributaria" },
+        { key: "D", text: "Una factura aún no presentada a la Administración" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 803 incluye valores recibidos inicialmente como simples depósitos, buenas cuentas, retenciones o saldos a favor.",
+    },
+    {
+      id: "question-route-11-804-1", provisionNumber: "ARTÍCULO 804", difficulty: 0.6, errorType: "PROCEDURE_ORDER_ERROR",
+      stem: "En una deuda vencida, ¿cómo deben imputarse los pagos según el inciso primero del artículo 804?",
+      options: [
+        { key: "A", text: "Al período e impuesto indicados, en proporción a los componentes de la obligación total" },
+        { key: "B", text: "Siempre primero a intereses, sin considerar la obligación total" },
+        { key: "C", text: "Únicamente al impuesto más antiguo de cualquier período" },
+        { key: "D", text: "Al concepto que el banco elija libremente" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 804 ordena imputar el pago al período e impuesto indicado, en las mismas proporciones de sanciones actualizadas, intereses, anticipos, impuestos y retenciones dentro de la obligación total.",
+    },
+    {
+      id: "question-route-11-804-2", provisionNumber: "ARTÍCULO 804", difficulty: 0.7, errorType: "MISSED_EXCEPTION",
+      stem: "Si el contribuyente imputa el pago de una forma diferente a la prevista en el artículo 804, ¿qué procede?",
+      options: [
+        { key: "A", text: "La Administración lo reimputa en el orden señalado sin acto administrativo previo" },
+        { key: "B", text: "El pago se anula automáticamente" },
+        { key: "C", text: "El banco decide de forma definitiva la imputación" },
+        { key: "D", text: "Debe iniciarse un proceso judicial antes de corregirlo" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 804 permite a la Administración reimputar el pago en el orden legal sin que se requiera acto administrativo previo.",
+    },
+  ];
+  for (const item of topic11Questions) {
+    const provision = statuteProvisions.get(item.provisionNumber);
+    if (!provision) throw new Error(`Missing statute provision for topic 11: ${item.provisionNumber}`);
+    const evidence = await prisma.evidence.upsert({
+      where: { id: `evidence-topic-11-${item.provisionNumber.replaceAll(" ", "-").toLowerCase()}` },
+      update: { provisionId: provision.id, content: provision.content, citation: provision.citation },
+      create: { id: `evidence-topic-11-${item.provisionNumber.replaceAll(" ", "-").toLowerCase()}`, provisionId: provision.id, content: provision.content, citation: provision.citation },
+    });
+    await prisma.conceptEvidence.upsert({ where: { conceptId_evidenceId: { conceptId: "concept-route-11", evidenceId: evidence.id } }, update: {}, create: { conceptId: "concept-route-11", evidenceId: evidence.id } });
+    const question = await prisma.question.upsert({
+      where: { id: item.id },
+      update: { objectiveId: "objective-route-11", difficulty: item.difficulty, stem: item.stem, options: item.options, correctAnswer: item.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "student-demo", reviewedAt: new Date() },
+      create: { id: item.id, objectiveId: "objective-route-11", type: "multiple_choice", difficulty: item.difficulty, stem: item.stem, options: item.options, correctAnswer: item.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "student-demo", reviewedAt: new Date() },
+    });
+    await prisma.questionEvidence.upsert({ where: { questionId_evidenceId: { questionId: question.id, evidenceId: evidence.id } }, update: {}, create: { questionId: question.id, evidenceId: evidence.id } });
+  }
+
+  const topic11Cases = [
+    {
+      id: "case-route-11-worked-example", difficulty: 0.45,
+      scenario: "Una obligación tributaria vencida aparece en la cuenta corriente de un contribuyente. El 14 de marzo, el contribuyente entrega el dinero en un banco autorizado y solicita que el pago se registre contra el período e impuesto que identifica en el comprobante. El valor fue recibido inicialmente como una buena cuenta y la obligación incluye impuesto, intereses y sanciones actualizadas.",
+      expectedAnalysis: "El análisis empieza por el artículo 800: el pago puede recaudarse a través de bancos y demás entidades financieras autorizadas. Luego, conforme al artículo 803, la fecha de pago es el 14 de marzo, cuando los valores imputables ingresaron al banco autorizado, aunque inicialmente se hayan recibido como buena cuenta. Finalmente, el artículo 804 exige imputar el pago al período e impuesto indicado, en las proporciones en que participan el impuesto, los intereses y las sanciones actualizadas dentro de la obligación total. La cuenta corriente debe reflejar ese movimiento con su fecha y distribución normativa.",
+      provisionNumbers: ["ARTÍCULO 800", "ARTÍCULO 803", "ARTÍCULO 804"],
+    },
+    {
+      id: "case-route-11-situational", difficulty: 0.7,
+      scenario: "Al revisar la cuenta corriente, una funcionaria observa que un pago de una deuda vencida fue registrado por el contribuyente únicamente contra los intereses, aunque el comprobante identifica el período y el impuesto. El contribuyente sostiene que la Administración no puede modificar la distribución porque el banco ya aplicó el dinero. ¿Qué debe decidir la funcionaria y cómo debe quedar reflejado el movimiento?",
+      expectedAnalysis: "Debe conservarse la fecha en que el pago ingresó al banco autorizado, de acuerdo con el artículo 803. La imputación debe corresponder al período e impuesto indicado y distribuirse en las proporciones previstas por el artículo 804 entre sanciones actualizadas, intereses, anticipos, impuestos y retenciones que integren la obligación total. Como la imputación realizada fue diferente, la Administración puede reimputar el pago en el orden legal sin acto administrativo previo. El registro de la cuenta corriente debe conservar la trazabilidad del pago, su fecha y la reimputación aplicada.",
+      provisionNumbers: ["ARTÍCULO 803", "ARTÍCULO 804"],
+    },
+  ];
+  for (const item of topic11Cases) {
+    const studyCase = await prisma.case.upsert({
+      where: { id: item.id },
+      update: { objectiveId: "objective-route-11", difficulty: item.difficulty, scenario: item.scenario, expectedAnalysis: item.expectedAnalysis },
+      create: { id: item.id, objectiveId: "objective-route-11", difficulty: item.difficulty, scenario: item.scenario, expectedAnalysis: item.expectedAnalysis },
+    });
+    for (const provisionNumber of item.provisionNumbers) {
+      const evidence = await prisma.evidence.findUnique({ where: { id: `evidence-topic-11-${provisionNumber.replaceAll(" ", "-").toLowerCase()}` } });
+      if (!evidence) throw new Error(`Missing evidence for topic 11 case: ${provisionNumber}`);
+      await prisma.caseEvidence.upsert({ where: { caseId_evidenceId: { caseId: studyCase.id, evidenceId: evidence.id } }, update: {}, create: { caseId: studyCase.id, evidenceId: evidence.id } });
+    }
+  }
+
+  await seedCuratedTopics12To24(prisma);
+
   await prisma.learningObjective.updateMany({ where: { id: { in: ["objective-alcance-art-823", "objective-mandamiento-pago", "objective-titulos-ejecutivos"] } }, data: { topicId: "topic-route-13" } });
   await prisma.learningObjective.updateMany({ where: { id: "objective-medidas-preventivas" }, data: { topicId: "topic-route-14" } });
   await prisma.topicProgress.upsert({ where: { studentId_topicId: { studentId: "student-demo", topicId: "topic-route-01" } }, update: { state: "AVAILABLE", unlockedAt: new Date() }, create: { studentId: "student-demo", topicId: "topic-route-01", state: "AVAILABLE", unlockedAt: new Date() } });
+}
+
+async function seedCuratedTopics12To24(prisma: PrismaClient) {
+  const documents = await prisma.legalDocument.findMany({ select: { id: true, title: true } });
+  for (const topic of curatedTopics12To24) {
+    const suffix = String(topic.order).padStart(2, "0");
+    const objectiveId = `objective-route-${suffix}`;
+    const conceptId = `concept-route-${suffix}`;
+    const manualEvidenceId = `evidence-material-manual-topic-${suffix}`;
+    const selectedDocumentIds = documents
+      .filter((document) => topic.sourceDocuments.some((pattern) => pattern.test(document.title)))
+      .map((document) => document.id);
+    const sourceProvisions = selectedDocumentIds.length
+      ? await prisma.legalProvision.findMany({ where: { documentId: { in: selectedDocumentIds } }, orderBy: [{ order: "asc" }, { createdAt: "asc" }] })
+      : [];
+    const usableProvisions = sourceProvisions.filter((provision) => {
+      const label = `${provision.number} ${provision.title} ${provision.content}`;
+      return provision.unitType !== "visual_extraction"
+        && !/bibliograf[ií]a|tabla de contenido|manual completo|tema 25|harvard business review|unesco|sanguinetti/i.test(label)
+        && !/\.{4,}\s*\d+/.test(provision.content);
+    });
+    const selectedProvisions = [
+      ...usableProvisions.filter((provision) => topic.preferredNumbers?.some((pattern) => pattern.test(provision.number))),
+      ...usableProvisions.filter((provision) => topic.preferredTitles?.some((pattern) => pattern.test(provision.title))),
+      ...usableProvisions.filter((provision) => topic.sourceText.some((pattern) => pattern.test(`${provision.number} ${provision.title} ${provision.content}`))),
+    ].filter((provision, index, items) => items.findIndex((candidate) => candidate.id === provision.id) === index).slice(0, topic.maxSources ?? 2);
+    const sourceEvidenceIds: string[] = [];
+    for (const [index, provision] of selectedProvisions.entries()) {
+      const evidence = await prisma.evidence.upsert({
+        where: { id: `evidence-topic-${suffix}-${index + 1}` },
+        update: { provisionId: provision.id, content: provision.content, citation: provision.citation },
+        create: { id: `evidence-topic-${suffix}-${index + 1}`, provisionId: provision.id, content: provision.content, citation: provision.citation },
+      });
+      sourceEvidenceIds.push(evidence.id);
+    }
+    if (!sourceEvidenceIds.length && topic.order === 19) {
+      const visualProvision = sourceProvisions.find((provision) => provision.unitType === "visual_extraction");
+      if (visualProvision) {
+        const visualPayload = JSON.parse(visualProvision.content) as { sections?: Array<{ headingVerbatim?: string | null }> };
+        const headings = (visualPayload.sections ?? []).map((section) => section.headingVerbatim?.trim()).filter((heading): heading is string => Boolean(heading));
+        const evidence = await prisma.evidence.upsert({
+          where: { id: "evidence-topic-19-1" },
+          update: { provisionId: visualProvision.id, content: `Secciones identificadas en la extracción: ${headings.join(", ")}. La extracción requiere validación editorial antes de considerarse fuente jurídica validada.`, citation: "Código Ética DIAN v3 (Prueba de Integridad), extracción visual" },
+          create: { id: "evidence-topic-19-1", provisionId: visualProvision.id, content: `Secciones identificadas en la extracción: ${headings.join(", ")}. La extracción requiere validación editorial antes de considerarse fuente jurídica validada.`, citation: "Código Ética DIAN v3 (Prueba de Integridad), extracción visual" },
+        });
+        sourceEvidenceIds.push(evidence.id);
+      }
+    }
+    if (!sourceEvidenceIds.length) {
+      const fallback = await prisma.evidence.findUnique({ where: { id: manualEvidenceId } });
+      if (!fallback) throw new Error(`Missing manual evidence for topic ${topic.order}`);
+      sourceEvidenceIds.push(fallback.id);
+    }
+
+    await prisma.concept.update({ where: { id: conceptId }, data: { description: topic.studyText } });
+    await prisma.conceptEvidence.deleteMany({ where: { conceptId } });
+    await prisma.conceptEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ conceptId, evidenceId })), skipDuplicates: true });
+
+    const questionIds: string[] = [];
+    for (const [index, item] of topic.questions.entries()) {
+      const id = `question-route-${suffix}-curated-${index + 1}`;
+      questionIds.push(id);
+      const question = await prisma.question.upsert({
+        where: { id },
+        update: { objectiveId, difficulty: 0.4 + index * 0.2, stem: item.stem, options: item.options, correctAnswer: item.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "student-demo", reviewedAt: new Date() },
+        create: { id, objectiveId, type: "multiple_choice", difficulty: 0.4 + index * 0.2, stem: item.stem, options: item.options, correctAnswer: item.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "student-demo", reviewedAt: new Date() },
+      });
+      await prisma.questionEvidence.deleteMany({ where: { questionId: question.id } });
+      await prisma.questionEvidence.create({ data: { questionId: question.id, evidenceId: sourceEvidenceIds[index % sourceEvidenceIds.length] } });
+    }
+
+    const cases = [
+      { id: `case-route-${suffix}-worked-example`, difficulty: 0.45, scenario: topic.workedExample.scenario, expectedAnalysis: topic.workedExample.analysis },
+      { id: `case-route-${suffix}-situational`, difficulty: 0.7, scenario: topic.applicationCase.scenario, expectedAnalysis: topic.applicationCase.analysis },
+    ];
+    for (const studyCase of cases) {
+      const savedCase = await prisma.case.upsert({ where: { id: studyCase.id }, update: { objectiveId, difficulty: studyCase.difficulty, scenario: studyCase.scenario, expectedAnalysis: studyCase.expectedAnalysis }, create: { ...studyCase, objectiveId } });
+      await prisma.caseEvidence.deleteMany({ where: { caseId: savedCase.id } });
+      await prisma.caseEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ caseId: savedCase.id, evidenceId })), skipDuplicates: true });
+    }
+
+    if (questionIds.length !== topic.questions.length) throw new Error(`Incomplete question set for topic ${topic.order}`);
+  }
 }

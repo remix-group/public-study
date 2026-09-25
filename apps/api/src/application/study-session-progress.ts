@@ -245,9 +245,11 @@ export async function getObjectiveStudyGuide(objectiveId: string, studentId?: st
       status: sourceEvidenceIds.some((id) => reviewedEvidenceIds.has(id)) ? "reviewed" as const : "pending" as const,
     };
   });
-  const supportedCase = objective.cases.find((studyCase) => studyCase.evidences.some(({ evidence }) => reviewedEvidenceIds.has(evidence.id))) ?? null;
-  const caseEvidenceIds = supportedCase
-    ? supportedCase.evidences.map(({ evidence }) => evidence.id).filter((id) => reviewedEvidenceIds.has(id))
+  const workedCase = objective.cases.find((studyCase) => studyCase.evidences.length > 0) ?? null;
+  const applicationCase = objective.cases.find((studyCase) => studyCase.evidences.length > 0 && studyCase.id !== workedCase?.id) ?? null;
+  const supportedCase = workedCase ?? applicationCase;
+  const caseEvidenceIds = (studyCase: typeof objective.cases[number] | null) => studyCase
+    ? studyCase.evidences.map(({ evidence }) => evidence.id)
     : [];
   const hasReviewedSource = evidences.some((evidence) => evidence.status === "reviewed");
   const hasStudyMaterial = lesson.length > 1 || evidences.length > 0;
@@ -282,15 +284,15 @@ export async function getObjectiveStudyGuide(objectiveId: string, studentId?: st
     keyConcepts,
     lesson,
     evidences,
-    workedExample: supportedCase ? {
-      id: supportedCase.id, situation: supportedCase.scenario, analysis: supportedCase.expectedAnalysis,
-      sourceEvidenceIds: caseEvidenceIds,
+    workedExample: workedCase ? {
+      id: workedCase.id, situation: workedCase.scenario, analysis: workedCase.expectedAnalysis,
+      sourceEvidenceIds: caseEvidenceIds(workedCase),
     } : null,
     checks,
     practice: { available: objective.questions.length > 0, questionCount: objective.questions.length },
-    applicationCase: supportedCase ? {
-      id: supportedCase.id, scenario: supportedCase.scenario, expectedAnalysis: supportedCase.expectedAnalysis,
-      difficulty: supportedCase.difficulty, sourceEvidenceIds: caseEvidenceIds,
+    applicationCase: applicationCase ? {
+      id: applicationCase.id, scenario: applicationCase.scenario, expectedAnalysis: applicationCase.expectedAnalysis,
+      difficulty: applicationCase.difficulty, sourceEvidenceIds: caseEvidenceIds(applicationCase),
     } : null,
     closure: {
       title: "Recupera antes de cerrar",

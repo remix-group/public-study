@@ -2,6 +2,8 @@ import { Prisma, prisma } from "@dian-study/infrastructure";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 const rank: Record<string, number> = { LOCKED: 0, AVAILABLE: 1, IN_PROGRESS: 2, COMPLETED: 3, MASTERED: 4 };
+// Temporary study mode: keep the complete OPEC route visible while content is being reviewed.
+const OPEN_CURRICULUM = true;
 
 export async function ensureTopicProgress(studentId: string, competencyId: string, db: DbClient = prisma) {
   const topics = await db.topic.findMany({
@@ -12,9 +14,15 @@ export async function ensureTopicProgress(studentId: string, competencyId: strin
   const existing = await db.topicProgress.findMany({ where: { studentId, topicId: { in: topics.map((topic) => topic.id) } } });
   const existingIds = new Set(existing.map((item) => item.topicId));
   const hasUnlocked = existing.some((item) => rank[item.state] >= rank.AVAILABLE);
+  if (OPEN_CURRICULUM) {
+    await db.topicProgress.updateMany({
+      where: { studentId, topicId: { in: topics.map((topic) => topic.id) }, state: "LOCKED" },
+      data: { state: "AVAILABLE", unlockedAt: new Date() },
+    });
+  }
   for (const [index, topic] of topics.entries()) {
     if (existingIds.has(topic.id)) continue;
-    const available = !hasUnlocked && index === 0;
+    const available = OPEN_CURRICULUM || (!hasUnlocked && index === 0);
     await db.topicProgress.create({
       data: { studentId, topicId: topic.id, state: available ? "AVAILABLE" : "LOCKED", unlockedAt: available ? new Date() : null },
     });
