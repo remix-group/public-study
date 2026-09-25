@@ -15,7 +15,7 @@ export const importedQuestionsSchema = z.object({
 export async function buildManualGenerationPrompt(documentId: string) {
   const document = await prisma.legalDocument.findUnique({
     where: { id: documentId },
-    include: { provisions: { orderBy: { order: "asc" }, take: 20, select: { id: true, citation: true, content: true } } },
+    include: { provisions: { orderBy: { order: "asc" }, select: { id: true, citation: true, content: true } } },
   });
   if (!document) throw new AttemptNotFoundError("Legal document not found");
   if (!document.provisions.length) throw new AttemptConflictError("Primero carga y procesa el PDF para extraer unidades jurídicas");

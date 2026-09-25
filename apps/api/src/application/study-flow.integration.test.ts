@@ -80,7 +80,7 @@ integration("study flow AC-001/002/003", () => {
     knowledgeRelationId = relation.id;
   });
 
-  it("generates and publishes evidence-backed material through the provider abstraction", async () => {
+  it("blocks generation when the validator cannot recover the primary source", async () => {
     const exported = await buildManualGenerationPrompt(knowledgeDocumentId);
     expect(exported.prompt).toContain(knowledgeUnitId);
     expect(exported.prompt).toContain("objective-alcance-art-823");

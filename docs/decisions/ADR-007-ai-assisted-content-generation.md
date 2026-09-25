@@ -11,7 +11,7 @@ El único usuario del MVP prepara el examen en un plazo corto. La revisión manu
 
 La aplicación define `AiProvider` como contrato independiente del proveedor. La primera implementación usa OpenAI Responses API con salida estricta mediante JSON Schema. La clave y el modelo se configuran por entorno.
 
-El proveedor recibe exclusivamente objetivos activos y texto jurídico extraído. La aplicación vuelve a validar identificadores, cuatro opciones diferentes, respuesta existente, evidencia vinculada y confianza mínima de 0.8. Solo los resultados que superan estas reglas se publican. El documento original, hash y evidencia permanecen como fuente de verdad.
+El proveedor recibe exclusivamente objetivos activos y texto jurídico extraído. Antes de entregárselo, el subagente validador de fuentes compara todas las unidades solicitadas —incluidas las pendientes— contra el PDF recuperable o la URL oficial y excluye únicamente las que no logra verificar. La aplicación vuelve a validar identificadores, cuatro opciones diferentes, respuesta existente, evidencia vinculada y confianza mínima de 0.8. El documento original, hash y evidencia permanecen como fuente de verdad.
 
 Cuando no existe una API key, el mismo contrato admite un adaptador manual: la plataforma exporta el prompt para ChatGPT Plus y reingresa su JSON como resultado de proveedor. Las validaciones y persistencia posteriores son idénticas.
 
@@ -19,5 +19,5 @@ Cuando no existe una API key, el mismo contrato admite un adaptador manual: la p
 
 - El usuario puede generar material después de aportar una fuente oficial.
 - Cambiar de proveedor no modifica el servicio de aplicación ni las rutas.
-- Una fuente auténtica reduce el riesgo de procedencia, pero no elimina errores de interpretación; por eso se conservan validaciones deterministas y trazabilidad.
+- Una fuente auténtica reduce el riesgo de procedencia, pero no elimina errores de interpretación; por eso se conservan validaciones deterministas, informe por unidad y trazabilidad.
 - Las llamadas reales requieren credenciales y pueden generar costes del proveedor.

@@ -35,7 +35,10 @@ knowledgeRouter.post("/documents/:id/ingest", express.raw({ type: "application/p
   } catch (error) { handle(error, res, next); }
 });
 knowledgeRouter.post("/documents/:id/generate", async (req, res, next) => {
-  try { res.status(201).json(await generateDocumentStudyMaterial(req.params.id, getAiProvider())); }
+  try {
+    const { sourceVerification } = z.object({ sourceVerification: z.enum(["local_only", "local_then_official_url"]).default("local_then_official_url") }).parse(req.body ?? {});
+    res.status(201).json(await generateDocumentStudyMaterial(req.params.id, getAiProvider(), sourceVerification));
+  }
   catch (error) { handle(error, res, next); }
 });
 knowledgeRouter.get("/documents/:id/generation-prompt", async (req, res, next) => {
