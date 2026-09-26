@@ -3,18 +3,22 @@ import { AttemptConflictError, AttemptNotFoundError } from "./submit-question-at
 
 const pipelineOrder = ["RECEIVED", "VALIDATED", "EXTRACTED", "PARSED", "ENRICHED", "INDEXED", "DRAFT_KNOWLEDGE", "REVIEW_REQUIRED", "PUBLISHED"] as const;
 
-export async function getKnowledgeCatalog() {
-  const documents = await prisma.legalDocument.findMany({
+export async function getKnowledgeCatalog(documentId?: string) {
+  const summaries = await prisma.legalDocument.findMany({
     orderBy: { updatedAt: "desc" },
-    include: {
-      versions: { orderBy: { effectiveFrom: "desc" } },
-      provisions: { orderBy: { order: "asc" }, include: { evidences: true } },
-    },
+    include: { versions: { orderBy: { effectiveFrom: "desc" } }, _count: { select: { provisions: true } } },
   });
+  const selectedId = summaries.some((document) => document.id === documentId) ? documentId! : summaries[0]?.id;
+  const selectedUnits = selectedId ? await prisma.legalProvision.findMany({
+    where: { documentId: selectedId }, orderBy: { order: "asc" }, take: 200, include: { evidences: true },
+  }) : [];
+  const documents = summaries.map(({ _count, ...document }) => ({
+    ...document, unitCount: _count.provisions, provisions: document.id === selectedId ? selectedUnits : [],
+  }));
   const relations = await prisma.legalRelation.findMany({
     orderBy: { createdAt: "desc" }, include: { sourceProvision: true, targetProvision: true },
   });
-  return { documents, relations, pipelineStates: [...pipelineOrder, "FAILED"] };
+  return { documents, selectedDocumentId: selectedId ?? null, unitLimit: 200, relations, pipelineStates: [...pipelineOrder, "FAILED"] };
 }
 
 export async function createLegalDocument(input: {

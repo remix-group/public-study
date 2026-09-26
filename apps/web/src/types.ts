@@ -82,8 +82,16 @@ export interface StudyGuide {
   block: { id: string; name: string };
   studyProcess: Array<{ mode: string; title: string; description: string }>;
   keyConcepts: string[];
-  evidences: Array<{ id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string; documentTitle: string; officialUrl: string }>;
+  evidences: Array<{ id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string; documentTitle: string; officialUrl: string; validationStatus: string; editorialStatus: string }>;
   questionCount: number;
+}
+export interface StudyLibrary {
+  documents: Array<{ id: string; title: string; authority: string; documentType: string; pipelineStatus: string; contentHash: string | null; originalFileKey: string | null; unitCount: number }>;
+  selectedDocument: { id: string; title: string } | null;
+  units: Array<{ id: string; unitType: string; number: string; title: string; content: string; citation: string; validationStatus: string; editorialStatus: string }>;
+  page: number;
+  totalPages: number;
+  totalUnits: number;
 }
 export type KnowledgeGraphNodeKind = "topic" | "objective" | "concept" | "provision" | "document";
 export interface KnowledgeGraphNode {
@@ -98,6 +106,37 @@ export interface TopicKnowledgeGraph {
   nodes: KnowledgeGraphNode[];
   edges: KnowledgeGraphEdge[];
   summary: { objectives: number; concepts: number; provisions: number; documents: number; legalRelations: number; directProvisions: number };
+}
+export interface InstitutionalClaimView {
+  id: string; type: string; statement: string; status: string; confidence: string;
+  sourceProvisionId: string; objectiveId: string | null;
+}
+export interface InstitutionalEntityView {
+  id: string; slug: string; officialName: string; aliases: string[]; entityType: string;
+  level: string | null; description: string; status: string; claims: InstitutionalClaimView[];
+}
+export interface InstitutionalRelationView {
+  id: string; sourceEntityId: string; targetEntityId: string; targetName: string; type: string;
+  label: string; description: string; hierarchical: boolean; status: string; confidence: string;
+  sourceProvisionId: string; objectiveId: string | null;
+}
+export interface InstitutionalSourceView {
+  provisionId: string; number: string; title: string; content: string; citation: string;
+  legalStatus: string; validationStatus: string; editorialStatus: string;
+  document: { id: string; title: string; authority: string; officialUrl: string };
+  objective: { id: string; name: string; topic: { id: string; name: string } } | null;
+}
+export interface InstitutionalMapView {
+  entities: InstitutionalEntityView[];
+  relations: InstitutionalRelationView[];
+  sources: InstitutionalSourceView[];
+  summary: { entities: number; claims: number; relations: number; hierarchicalRelations: number; documents: number; pendingReview: number };
+  filters: {
+    entityTypes: string[];
+    documents: Array<{ id: string; title: string }>;
+    objectives: Array<{ id: string; name: string; topic: { id: string; name: string } }>;
+    confidences: string[];
+  };
 }
 export interface AuthStudent { id: string; name: string; email: string; role: "student" | "editor" }
 export interface EditorialQuestion {
@@ -116,7 +155,7 @@ export interface EditorialQuestionInput {
   objectiveId: string; difficulty: number; stem: string; options: QuestionOption[];
   correctAnswer: string; explanation: string; evidenceIds: string[];
 }
-export interface LegalVersionView { id: string; documentId: string; label: string; effectiveFrom: string; effectiveUntil: string | null; status: string; isCurrent: boolean }
+export interface LegalVersionView { id: string; documentId: string; label: string; effectiveFrom: string | null; effectiveUntil: string | null; status: string; isCurrent: boolean }
 export interface LegalUnitView {
   id: string; documentId: string; versionId: string | null; unitType: string; anchor: string; order: number;
   number: string; title: string; content: string; citation: string; validationStatus: string; editorialStatus: string;
@@ -124,10 +163,12 @@ export interface LegalUnitView {
 }
 export interface LegalDocumentView {
   id: string; title: string; authority: string; documentType: string; officialUrl: string; pipelineStatus: string; contentHash: string | null;
-  effectiveFrom: string; status: string; versions: LegalVersionView[]; provisions: LegalUnitView[];
+  effectiveFrom: string | null; status: string; versions: LegalVersionView[]; provisions: LegalUnitView[]; unitCount: number;
 }
 export interface KnowledgeCatalog {
   documents: LegalDocumentView[];
+  selectedDocumentId: string | null;
+  unitLimit: number;
   relations: Array<{ id: string; type: string; description: string; sourceProvision: LegalUnitView; targetProvision: LegalUnitView }>;
   pipelineStates: string[];
 }

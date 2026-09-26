@@ -1,6 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import { randomBytes, scrypt as scryptCallback } from "node:crypto";
 import { promisify } from "node:util";
+import { seedImportedMaterial } from "./material-seed.js";
+import { seedInstitutionalMap } from "./institutional-map-seed.js";
+import { seedOpecFunctions } from "./opec-functions.js";
 
 const prisma = new PrismaClient();
 const SOURCE_URL = "https://normograma.dian.gov.co/dian/compilacion/docs/paneles/estatuto_tributario_indice.html";
@@ -19,17 +22,18 @@ async function main() {
     create: { id: "student-demo", name: "Estudiante demo", email: "demo@dian-study.local", passwordHash: await demoPasswordHash(), role: "editor" },
   });
   const opec = await prisma.opec.upsert({
-    where: { id: "opec-analista-i" }, update: { process: "Cumplimiento de obligaciones tributarias", subprocess: "Administración de cartera, Recaudo-Devoluciones" },
-    create: { id: "opec-analista-i", name: "Analista I", description: "OPEC de demostración del MVP", level: "Técnico", area: "Administración de Cartera", process: "Cumplimiento de obligaciones tributarias", subprocess: "Administración de cartera, Recaudo-Devoluciones" },
+    where: { id: "opec-analista-i" }, update: { process: "Cumplimiento de obligaciones tributarias", subprocess: "Administración de cartera, Recaudo-Devoluciones", sourceHash: "96a579edd0af108a9db1b33833945f8e07c2cd13d55f108cc141751c048afd9b", sourceFileKey: "get-document.pdf", sourceVersion: "Ficha 01 — 15/04/2024" },
+    create: { id: "opec-analista-i", name: "Analista I", description: "OPEC de demostración del MVP", level: "Técnico", area: "Administración de Cartera", process: "Cumplimiento de obligaciones tributarias", subprocess: "Administración de cartera, Recaudo-Devoluciones", sourceHash: "96a579edd0af108a9db1b33833945f8e07c2cd13d55f108cc141751c048afd9b", sourceFileKey: "get-document.pdf", sourceVersion: "Ficha 01 — 15/04/2024" },
   });
+  await seedOpecFunctions(prisma);
   const competency = await prisma.competency.upsert({
     where: { id: "competency-cobro-coactivo" }, update: {},
     create: { id: "competency-cobro-coactivo", opecId: opec.id, name: "Cobro Coactivo", description: "Procedimiento administrativo de cobro" },
   });
   const block = await prisma.block.upsert({
     where: { id: "block-competency-cobro-coactivo" },
-    update: { name: "Proceso de Cobro Coactivo", description: "De la obligación exigible a las medidas preventivas", order: 1, progressionThreshold: 0.7 },
-    create: { id: "block-competency-cobro-coactivo", competencyId: competency.id, name: "Proceso de Cobro Coactivo", description: "De la obligación exigible a las medidas preventivas", order: 1, progressionThreshold: 0.7 },
+    update: { name: "Proceso de Cobro Coactivo", description: "Contenido base conservado para compatibilidad", order: 99, progressionThreshold: 0.7, status: "inactive" },
+    create: { id: "block-competency-cobro-coactivo", competencyId: competency.id, name: "Proceso de Cobro Coactivo", description: "Contenido base conservado para compatibilidad", order: 99, progressionThreshold: 0.7, status: "inactive" },
   });
   const topic = await prisma.topic.upsert({
     where: { id: "topic-procedimiento" }, update: { blockId: block.id, name: "Fundamentos y títulos ejecutivos", description: "Qué se cobra y qué documentos permiten iniciar el procedimiento", order: 1 },
@@ -190,6 +194,8 @@ async function main() {
       create: { studentId: student.id, topicId: itemTopic.id, state: index === 0 ? "AVAILABLE" : "LOCKED", unlockedAt: index === 0 ? new Date() : null },
     });
   }
+  await seedImportedMaterial(prisma);
+  await seedInstitutionalMap(prisma);
   console.log({ studentId: student.id, competencyId: competency.id, questionId: question.id });
 }
 

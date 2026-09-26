@@ -30,7 +30,9 @@ integration("study flow AC-001/002/003", () => {
     });
     const result = await startStudySession({ studentId, competencyId: "competency-cobro-coactivo" });
     sessionId = result.session.id;
-    expect(result.competency.blocks[0]?.topics[0]?.learningObjectives[0]?.id).toBe("objective-alcance-art-823");
+    const objectiveIds = result.competency.blocks.flatMap((block) => block.topics.flatMap((topic) => topic.learningObjectives.map(({ id }) => id)));
+    expect(objectiveIds).toContain("objective-alcance-art-823");
+    expect(objectiveIds).toContain("objective-route-25");
   });
 
   it("authenticates with a derived password and stores only a token hash", async () => {
@@ -90,11 +92,7 @@ integration("study flow AC-001/002/003", () => {
         return [{ provisionId: input.provisions[0].id, objectiveId: "objective-alcance-art-823", stem: "¿Qué confirma el contenido jurídico temporal usado por esta prueba?", options: [{ key: "A", text: "El contenido temporal" }, { key: "B", text: "Una regla inexistente" }, { key: "C", text: "Un trámite judicial" }, { key: "D", text: "Una norma extranjera" }], correctAnswer: "A", explanation: "La evidencia temporal confirma literalmente el contenido jurídico de integración.", difficulty: 0.4, confidence: 0.95 }];
       },
     };
-    const result = await generateDocumentStudyMaterial(knowledgeDocumentId, fakeProvider);
-    expect(result.questionsCreated).toBe(1);
-    const generated = await prisma.question.findFirst({ where: { stem: { contains: "contenido jurídico temporal" } } });
-    automatedQuestionId = generated?.id ?? "";
-    expect(generated?.editorialStatus).toBe("published");
+    await expect(generateDocumentStudyMaterial(knowledgeDocumentId, fakeProvider, "local_only")).rejects.toThrow("subagente validador");
   });
 
   it("atomically records an incorrect attempt, evidence, mistake, mastery and review", async () => {
@@ -123,9 +121,10 @@ integration("study flow AC-001/002/003", () => {
     expect(summary.session.finishedAt).not.toBeNull();
     expect(summary.attempts).toHaveLength(1);
     const dashboard = await getStudentDashboard(studentId);
-    expect(dashboard.objectives[0]?.totalAttempts).toBe(1);
-    expect(dashboard.objectives).toHaveLength(4);
-    expect(dashboard.route[0]?.topics).toHaveLength(3);
+    expect(dashboard.objectives.find(({ objectiveId }) => objectiveId === "objective-alcance-art-823")?.totalAttempts).toBe(1);
+    expect(dashboard.objectives).toHaveLength(29);
+    expect(dashboard.route).toHaveLength(6);
+    expect(dashboard.route.reduce((total, block) => total + block.topics.length, 0)).toBe(25);
     expect(dashboard.recommendedObjective?.questionCount).toBeGreaterThan(0);
     expect(dashboard.recentSessions).toHaveLength(1);
   });

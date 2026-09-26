@@ -1,4 +1,4 @@
-import type { AttemptResponse, AuthStudent, Dashboard, EditorialCatalog, EditorialQuestion, EditorialQuestionInput, KnowledgeCatalog, LegalDocumentView, LegalUnitView, LegalVersionView, NextQuestionResponse, SessionStartResponse, SessionSummary, StudyGuide, TopicKnowledgeGraph } from "./types";
+import type { AttemptResponse, AuthStudent, Dashboard, EditorialCatalog, EditorialQuestion, EditorialQuestionInput, InstitutionalMapView, KnowledgeCatalog, LegalDocumentView, LegalUnitView, LegalVersionView, NextQuestionResponse, SessionStartResponse, SessionSummary, StudyGuide, StudyLibrary, TopicKnowledgeGraph } from "./types";
 
 const COMPETENCY_ID = "competency-cobro-coactivo";
 
@@ -51,7 +51,14 @@ export function getDashboard() {
   return request<Dashboard>("/api/learning/dashboard");
 }
 export function getStudyGuide(objectiveId: string) { return request<StudyGuide>(`/api/learning/objectives/${objectiveId}/guide`); }
+export function getStudyLibrary(documentId?: string, query?: string, page = 1) {
+  const params = new URLSearchParams({ page: String(page) });
+  if (documentId) params.set("documentId", documentId);
+  if (query) params.set("query", query);
+  return request<StudyLibrary>(`/api/learning/library?${params}`);
+}
 export function getTopicKnowledgeGraph(topicId: string) { return request<TopicKnowledgeGraph>(`/api/learning/topics/${topicId}/graph`); }
+export function getInstitutionalMap() { return request<InstitutionalMapView>("/api/learning/institutional-map"); }
 
 export function getCurrentStudent() { return request<{ student: AuthStudent }>("/api/auth/me"); }
 export function login(email: string, password: string) {
@@ -68,7 +75,7 @@ export function createEditorialQuestion(input: EditorialQuestionInput) {
 export function setQuestionPublication(id: string, publish: boolean) {
   return request<EditorialQuestion>(`/api/editorial/questions/${id}/publication`, { method: "POST", body: JSON.stringify({ publish }) });
 }
-export function getKnowledgeCatalog() { return request<KnowledgeCatalog>("/api/knowledge/catalog"); }
+export function getKnowledgeCatalog(documentId?: string) { return request<KnowledgeCatalog>(`/api/knowledge/catalog${documentId ? `?documentId=${encodeURIComponent(documentId)}` : ""}`); }
 export function createKnowledgeDocument(input: object) { return request<LegalDocumentView>("/api/knowledge/documents", { method: "POST", body: JSON.stringify(input) }); }
 export function transitionKnowledgeDocument(id: string, target: string) { return request<LegalDocumentView>(`/api/knowledge/documents/${id}/transition`, { method: "POST", body: JSON.stringify({ target }) }); }
 export function createKnowledgeVersion(input: object) { return request<LegalVersionView>("/api/knowledge/versions", { method: "POST", body: JSON.stringify(input) }); }
