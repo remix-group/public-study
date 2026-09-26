@@ -1,0 +1,4 @@
+interface:
+  display_name: Mapa institucional DIAN
+  short_description: Diseña mapas de entidades, funciones y relaciones jurídicas de la DIAN.
+  default_prompt: Usa $mapa-institucional-dian para analizar, modelar o implementar el mapa institucional sustentado en el corpus jurídico.

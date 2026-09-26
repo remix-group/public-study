@@ -27,13 +27,39 @@ model Opec {
   area        String // e.g. "Administración de Cartera"
   process     String   @default("")
   subprocess  String   @default("")
+  sourceHash  String?
+  sourceFileKey String?
+  sourceVersion String?
   status      String   @default("active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   competencies Competency[]
+  functions    OpecFunction[]
 
   @@map("opecs")
+}
+
+model OpecFunction {
+  id                String   @id
+  opecId            String
+  order             Int
+  content           String
+  sourceHash        String
+  sourceFileKey     String
+  sourceReferenceId String?
+  pageStart         Int?
+  pageEnd           Int?
+  charStart         Int?
+  charEnd           Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  opec Opec @relation(fields: [opecId], references: [id])
+
+  @@unique([opecId, order])
+  @@index([sourceReferenceId])
+  @@map("opec_functions")
 }
 
 model Competency {
@@ -105,6 +131,8 @@ model LearningObjective {
   mistakes        Mistake[]
   masteryStates   MasteryState[]
   reviewSchedules ReviewSchedule[]
+  institutionalClaims InstitutionalClaim[]
+  institutionalRelations InstitutionalRelation[]
 
   @@map("learning_objectives")
 }
@@ -112,6 +140,32 @@ model LearningObjective {
 // ─────────────────────────────────────────────
 // Legal subdomain
 // ─────────────────────────────────────────────
+
+model SourceReference {
+  id           String   @id
+  sourceHash   String   @unique
+  storageKey   String
+  originalName String
+  mimeType     String   @default("application/pdf")
+  byteSize     BigInt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([storageKey])
+  @@map("source_references")
+}
+
+model LegalSourceQuarantine {
+  id         String   @id
+  entityType String
+  entityId   String
+  payload    Json
+  reason     String
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@map("legal_source_quarantine")
+}
 
 model LegalDocument {
   id              String    @id @default(cuid())
@@ -123,7 +177,7 @@ model LegalDocument {
   contentHash     String?
   originalFileKey String?
   pipelineStatus  String    @default("RECEIVED")
-  effectiveFrom   DateTime
+  effectiveFrom   DateTime?
   effectiveUntil  DateTime?
   status          String    @default("vigente") // vigente | derogado | modificado | suspendido
   createdAt       DateTime  @default(now())
@@ -140,10 +194,13 @@ model LegalVersion {
   id             String    @id @default(cuid())
   documentId     String
   label          String
-  effectiveFrom  DateTime
+  effectiveFrom  DateTime?
   effectiveUntil DateTime?
   status         String    @default("vigente")
   sourceHash     String?
+  sourceReferenceId String?
+  extractor      String?
+  extractorVersion String?
   isCurrent      Boolean   @default(false)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -153,6 +210,8 @@ model LegalVersion {
 
   @@unique([documentId, label])
   @@index([documentId, isCurrent])
+  @@index([sourceHash])
+  @@index([sourceReferenceId])
   @@map("legal_versions")
 }
 
@@ -170,9 +229,16 @@ model LegalProvision {
   title             String
   content           String
   citation          String
-  effectiveFrom     DateTime
+  effectiveFrom     DateTime?
   effectiveUntil    DateTime?
   status            String    @default("vigente")
+  sourceReferenceId String?
+  pageStart         Int?
+  pageEnd           Int?
+  charStart         Int?
+  charEnd           Int?
+  extractor         String?
+  extractorVersion  String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -185,9 +251,12 @@ model LegalProvision {
   relationsAsTarget LegalRelation[]  @relation("RelationTarget")
   referencesFrom    LegalReference[] @relation("ReferenceFromProvision")
   referencesTo      LegalReference[] @relation("ReferenceToProvision")
+  institutionalClaims InstitutionalClaim[]
+  institutionalRelations InstitutionalRelation[]
 
   @@index([versionId, order])
   @@index([editorialStatus, validationStatus])
+  @@index([sourceReferenceId, pageStart, pageEnd])
   @@map("legal_provisions")
 }
 
@@ -228,6 +297,13 @@ model Evidence {
   provisionId String
   content     String
   citation    String
+  sourceReferenceId String?
+  pageStart   Int?
+  pageEnd     Int?
+  charStart   Int?
+  charEnd     Int?
+  extractor   String?
+  extractorVersion String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -237,6 +313,82 @@ model Evidence {
   cases     CaseEvidence[]
 
   @@map("evidences")
+}
+
+// ─────────────────────────────────────────────
+// Institutional knowledge subdomain
+// ─────────────────────────────────────────────
+
+model InstitutionalEntity {
+  id           String   @id
+  slug         String   @unique
+  officialName String
+  aliases      Json
+  entityType   String
+  level        String?
+  description  String
+  status       String   @default("confirmed") // confirmed | no_confirmado
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  claims            InstitutionalClaim[]
+  outgoingRelations InstitutionalRelation[] @relation("InstitutionalRelationSource")
+  incomingRelations InstitutionalRelation[] @relation("InstitutionalRelationTarget")
+
+  @@index([entityType])
+  @@index([status])
+  @@map("institutional_entities")
+}
+
+model InstitutionalClaim {
+  id                String   @id
+  entityId          String
+  claimType         String // function | competence | purpose | description
+  statement         String
+  status            String   @default("pending_review") // confirmed | pending_review | no_confirmado
+  confidence        String   @default("probable") // certain | probable | tentative
+  sourceProvisionId String
+  objectiveId       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  entity          InstitutionalEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  sourceProvision LegalProvision      @relation(fields: [sourceProvisionId], references: [id])
+  objective       LearningObjective?  @relation(fields: [objectiveId], references: [id])
+
+  @@index([entityId, claimType])
+  @@index([sourceProvisionId])
+  @@index([objectiveId])
+  @@index([status, confidence])
+  @@map("institutional_claims")
+}
+
+model InstitutionalRelation {
+  id                String   @id
+  sourceEntityId    String
+  targetEntityId    String
+  relationType      String // dependency | coordination | regulation | control | cooperation | participation | reporting
+  label             String
+  description       String
+  hierarchical      Boolean  @default(false)
+  status            String   @default("pending_review")
+  confidence        String   @default("probable")
+  sourceProvisionId String
+  objectiveId       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  sourceEntity    InstitutionalEntity @relation("InstitutionalRelationSource", fields: [sourceEntityId], references: [id], onDelete: Cascade)
+  targetEntity    InstitutionalEntity @relation("InstitutionalRelationTarget", fields: [targetEntityId], references: [id], onDelete: Cascade)
+  sourceProvision LegalProvision      @relation(fields: [sourceProvisionId], references: [id])
+  objective       LearningObjective?  @relation(fields: [objectiveId], references: [id])
+
+  @@index([sourceEntityId, relationType])
+  @@index([targetEntityId])
+  @@index([sourceProvisionId])
+  @@index([objectiveId])
+  @@index([hierarchical, status])
+  @@map("institutional_relations")
 }
 
 // ─────────────────────────────────────────────

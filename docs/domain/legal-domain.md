@@ -16,6 +16,9 @@ Fuentes objetivo del MVP:
 - `LegalRelation`: Relación tipificada y direccional entre disposiciones.
 - `LegalVersion`: Versión en el tiempo de un documento o disposición.
 - `Evidence`: Fragmento jurídico extraído que fundamenta una evaluación, pregunta o caso.
+- `InstitutionalEntity`: Entidad, órgano, dependencia o autoridad mencionada por el corpus, con nombre oficial y alias separados.
+- `InstitutionalClaim`: Función, competencia, propósito o descripción institucional sustentada por una disposición.
+- `InstitutionalRelation`: Relación tipificada entre dos entidades institucionales, con evidencia y distinción explícita entre jerárquica y funcional.
 
 ## Relaciones (Tipos de LegalRelation)
 - `MODIFIES`
@@ -35,3 +38,24 @@ Fuentes objetivo del MVP:
 ## Knowledge Core
 
 `LegalDocument` registra la fuente lógica y el estado de su pipeline. `LegalVersion` representa una edición temporal inmutable. Durante el MVP, `LegalProvision` implementa el concepto arquitectónico `LegalUnit` y puede representar títulos, capítulos, artículos, parágrafos, incisos, numerales o anexos mediante una jerarquía y un `anchor` estable.
+
+Las fechas de vigencia pueden ser desconocidas durante una importación masiva. En ese caso
+`effectiveFrom` permanece nulo y el documento, versión o unidad conserva estado
+`pending_review`; nunca se inventa una fecha para satisfacer el almacenamiento. El material
+pedagógico, las cartillas y las extracciones visuales se conservan como tipos de unidad dentro
+de la misma cadena documental, pero no se presentan como autoridad jurídica hasta superar
+revisión editorial.
+
+## Conocimiento institucional
+
+El mapa institucional no se construye a partir de menciones aisladas. Cada afirmación y
+relación conserva `sourceProvisionId`, estado editorial y nivel de confianza; puede además
+enlazarse a un `LearningObjective`. Una relación funcional nunca implica jerarquía. Los tipos
+iniciales son `dependency`, `coordination`, `regulation`, `control`, `cooperation`,
+`participation` y `reporting`. Solo `dependency` puede marcarse como jerárquica cuando la
+fuente lo expresa de forma suficiente.
+
+El estado `pending_review` indica que el dato fue extraído de una unidad jurídica del corpus
+que aún requiere revisión editorial. `no_confirmado` se reserva para información incompleta y
+no debe presentarse como hecho. La interfaz siempre permite regresar a la disposición y al
+documento que sustentan el dato.

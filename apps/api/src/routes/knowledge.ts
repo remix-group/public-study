@@ -21,7 +21,7 @@ function handle(error: unknown, res: Response, next: NextFunction) {
   next(error);
 }
 
-knowledgeRouter.get("/catalog", async (_req, res, next) => { try { res.json(await getKnowledgeCatalog()); } catch (error) { handle(error, res, next); } });
+knowledgeRouter.get("/catalog", async (req, res, next) => { try { res.json(await getKnowledgeCatalog(typeof req.query.documentId === "string" ? req.query.documentId : undefined)); } catch (error) { handle(error, res, next); } });
 knowledgeRouter.post("/documents", async (req, res, next) => {
   try { res.status(201).json(await createLegalDocument(z.object({ title: z.string().min(3), authority: z.string().min(2), documentType: z.string().min(2), officialUrl: z.string().url(), effectiveFrom: date, effectiveUntil: date.nullish() }).parse(req.body))); } catch (error) { handle(error, res, next); }
 });
@@ -35,7 +35,10 @@ knowledgeRouter.post("/documents/:id/ingest", express.raw({ type: "application/p
   } catch (error) { handle(error, res, next); }
 });
 knowledgeRouter.post("/documents/:id/generate", async (req, res, next) => {
-  try { res.status(201).json(await generateDocumentStudyMaterial(req.params.id, getAiProvider())); }
+  try {
+    const { sourceVerification } = z.object({ sourceVerification: z.enum(["local_only", "local_then_official_url"]).default("local_then_official_url") }).parse(req.body ?? {});
+    res.status(201).json(await generateDocumentStudyMaterial(req.params.id, getAiProvider(), sourceVerification));
+  }
   catch (error) { handle(error, res, next); }
 });
 knowledgeRouter.get("/documents/:id/generation-prompt", async (req, res, next) => {
@@ -44,8 +47,8 @@ knowledgeRouter.get("/documents/:id/generation-prompt", async (req, res, next) =
 });
 knowledgeRouter.post("/documents/:id/import-material", async (req, res, next) => {
   try {
-    const { questions } = importedQuestionsSchema.parse(req.body);
-    res.status(201).json(await generateDocumentStudyMaterial(req.params.id, manualImportProvider(questions)));
+    const { questions, sourceVerification } = importedQuestionsSchema.extend({ sourceVerification: z.enum(["local_only", "local_then_official_url"]).default("local_then_official_url") }).parse(req.body);
+    res.status(201).json(await generateDocumentStudyMaterial(req.params.id, manualImportProvider(questions), sourceVerification));
   } catch (error) { handle(error, res, next); }
 });
 knowledgeRouter.post("/versions", async (req, res, next) => {

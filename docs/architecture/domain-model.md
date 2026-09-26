@@ -34,6 +34,20 @@ OPEC / JobProfile
 
 Para exploración, la plataforma deriva un `TopicKnowledgeGraph` de estas relaciones. La proyección conecta tema, objetivos, conceptos, disposiciones y documentos, e incorpora relaciones jurídicas de un salto. No duplica entidades ni sustituye la jerarquía curricular.
 
+El conocimiento institucional se conserva como una capa editorial trazable:
+
+```text
+InstitutionalEntity
+   ├── InstitutionalClaim ─────→ LegalProvision ─────→ LegalDocument
+   └── InstitutionalRelation ──→ InstitutionalEntity
+              ├────────────────→ LegalProvision
+              └────────────────→ LearningObjective (opcional)
+```
+
+El árbol usa exclusivamente relaciones marcadas como jerárquicas. El grafo muestra las
+relaciones funcionales con su tipo; ninguna arista se crea por una simple coincidencia de
+nombre en el corpus.
+
 ## Modelo de Interacción del Estudiante
 
 El ciclo de vida de la práctica y la evaluación del dominio se modela de la siguiente manera:

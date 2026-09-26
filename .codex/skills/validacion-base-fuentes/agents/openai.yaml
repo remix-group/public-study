@@ -1,0 +1,4 @@
+interface:
+  display_name: "Validador BD-Fuentes Jurídicas DIAN"
+  short_description: "Audita fidelidad y trazabilidad entre BD y fuentes"
+  default_prompt: "Usa $validacion-base-fuentes para comparar la base de datos con los archivos jurídicos originales y generar un informe JSON reproducible."

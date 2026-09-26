@@ -14,6 +14,8 @@ Perfiles disponibles:
 
 - `domain-architecture`: dominio, arquitectura y ADR.
 - `legal-knowledge`: fuentes jurídicas y autoridad normativa.
+- `legal-ingestion`: procesamiento masivo, extracción y trazabilidad de PDFs jurídicos.
+- `validacion-base-fuentes`: auditoría de fidelidad e integridad entre la base y las fuentes originales.
 - `knowledge-graph`: relaciones y navegación del grafo jurídico.
 - `adaptive-learning`: lógica pedagógica y adaptación.
 - `backend-security`: API, autenticación y autorización.
