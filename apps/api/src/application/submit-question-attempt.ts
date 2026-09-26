@@ -2,6 +2,7 @@ import { LearningEngine } from "@dian-study/learning";
 import { Prisma, prisma } from "@dian-study/infrastructure";
 import type { EvidenceSnapshot, MasteryState, Mistake, QuestionAttempt } from "@dian-study/domain";
 import { updateTopicProgress } from "./progression.js";
+import { isPublishableProvision } from "./legal-publication.js";
 
 export interface SubmitQuestionAttemptInput {
   studentId: string;
@@ -27,14 +28,16 @@ export async function submitQuestionAttempt(input: SubmitQuestionAttemptInput) {
       where: { id: input.questionId },
       include: {
         objective: { include: { topic: { include: { block: true } } } },
-        evidences: { include: { evidence: true } },
+        evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } },
       },
     });
     if (!question || question.editorialStatus !== "published") throw new AttemptNotFoundError("Published question not found");
     if (question.objective.topic.block.competencyId !== session.competencyId) {
       throw new AttemptConflictError("Question does not belong to the session competency");
     }
-    if (question.evidences.length === 0) throw new AttemptConflictError("Question has no legal evidence");
+    if (question.evidences.length === 0 || !question.evidences.every(({ evidence }) => isPublishableProvision(evidence.provision))) {
+      throw new AttemptConflictError("Question does not have fully reviewed current official legal evidence");
+    }
 
     const evidenceSnapshots: EvidenceSnapshot[] = question.evidences.map(({ evidence }) => ({
       evidenceId: evidence.id,

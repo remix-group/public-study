@@ -2,8 +2,10 @@ import { Prisma, prisma } from "@dian-study/infrastructure";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 const rank: Record<string, number> = { LOCKED: 0, AVAILABLE: 1, IN_PROGRESS: 2, COMPLETED: 3, MASTERED: 4 };
-// Temporary study mode: keep the complete OPEC route visible while content is being reviewed.
-const OPEN_CURRICULUM = true;
+// This is an explicit deployment setting, so the temporary open route cannot
+// silently become permanent product behaviour. Local study remains open until
+// the environment opts into gated progression.
+const OPEN_CURRICULUM = process.env.OPEN_CURRICULUM !== "false";
 
 export async function ensureTopicProgress(studentId: string, competencyId: string, db: DbClient = prisma) {
   const topics = await db.topic.findMany({

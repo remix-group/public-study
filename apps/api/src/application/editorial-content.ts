@@ -1,5 +1,6 @@
 import { Prisma, prisma } from "@dian-study/infrastructure";
 import { AttemptConflictError, AttemptNotFoundError } from "./submit-question-attempt.js";
+import { isPublishableProvision } from "./legal-publication.js";
 
 export interface EditorialQuestionInput {
   objectiveId: string;
@@ -61,12 +62,15 @@ export async function updateEditorialQuestion(id: string, input: EditorialQuesti
 }
 
 export async function setQuestionPublication(id: string, publish: boolean, editorId: string) {
-  const question = await prisma.question.findUnique({ where: { id }, include: { evidences: true } });
+  const question = await prisma.question.findUnique({ where: { id }, include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } } });
   if (!question) throw new AttemptNotFoundError("Question not found");
   if (publish) {
     const options = question.options as Array<{ key?: string }> | null;
     if (!options?.some(({ key }) => key === question.correctAnswer) || question.evidences.length === 0 || !question.explanation.trim()) {
       throw new AttemptConflictError("Question is incomplete and cannot be published");
+    }
+    if (!question.evidences.every(({ evidence }) => isPublishableProvision(evidence.provision))) {
+      throw new AttemptConflictError("No se puede publicar una pregunta hasta que todas sus fuentes oficiales estén vigentes, aprobadas y publicadas");
     }
   }
   return prisma.question.update({

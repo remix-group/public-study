@@ -59,10 +59,17 @@ export interface ObjectiveProgress {
 }
 
 export interface NextQuestionResponse { question: Question; objective: LearningObjective }
+export interface CaseExercise { id: string; objectiveId: string; difficulty: number; scenario: string }
+export interface NextCaseResponse { case: CaseExercise; objective: LearningObjective }
+export interface CaseAttemptResponse {
+  evaluationMethod: "self_review"; expectedAnalysis: string; evidence: EvidenceSnapshot[];
+  mastery: number; masteryDelta: number; nextReviewDate: string;
+}
 export interface SessionSummary {
   session: StudySession & { finishedAt: string };
   accuracy: number;
   attempts: Array<{ id: string; result: string; answer: string; question: string; objective: string }>;
+  caseAttempts: Array<{ id: string; result: string; response: string; scenario: string; objective: string }>;
 }
 export interface Dashboard {
   student: { id: string; name: string };
@@ -92,7 +99,7 @@ export interface StudyGuide {
     content: string; sourceEvidenceIds: string[]; status: "reviewed" | "pending";
   }>;
   evidences: Array<{
-    id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string;
+    id: string; citation: string; content: string; documentId: string; provisionId: string; provisionNumber: string; provisionTitle: string;
     documentTitle: string; documentType: string; unitType: string; officialUrl: string;
     validationStatus: string; editorialStatus: string; status: "reviewed" | "pending";
     sourceKind: "primary" | "pedagogical";

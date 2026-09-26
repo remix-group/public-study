@@ -2,6 +2,7 @@ import { Router, type Router as ExpressRouter } from "express";
 import { z } from "zod";
 import { AuthenticationError, EmailConflictError, loginStudent, registerStudent, revokeSession } from "../auth/service.js";
 import { readSessionCookie, requireAuth, SESSION_COOKIE } from "../auth/middleware.js";
+import { authRateLimit } from "../security/request-protection.js";
 
 export const authRouter: ExpressRouter = Router();
 const credentialsSchema = z.object({ email: z.string().email(), password: z.string().min(10).max(128) });
@@ -11,7 +12,7 @@ const secureCookie = process.env.COOKIE_SECURE
   : process.env.NODE_ENV === "production";
 const cookieOptions = { httpOnly: true, sameSite: "lax" as const, secure: secureCookie, path: "/" };
 
-authRouter.post("/register", async (req, res, next) => {
+authRouter.post("/register", authRateLimit({ limit: 5, windowMs: 60 * 60_000 }), async (req, res, next) => {
   try {
     const result = await registerStudent(registerSchema.parse(req.body));
     res.cookie(SESSION_COOKIE, result.token, { ...cookieOptions, expires: result.expiresAt });
@@ -23,7 +24,7 @@ authRouter.post("/register", async (req, res, next) => {
   }
 });
 
-authRouter.post("/login", async (req, res, next) => {
+authRouter.post("/login", authRateLimit(), async (req, res, next) => {
   try {
     const result = await loginStudent(credentialsSchema.parse(req.body));
     res.cookie(SESSION_COOKIE, result.token, { ...cookieOptions, expires: result.expiresAt });

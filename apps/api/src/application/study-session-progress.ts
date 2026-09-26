@@ -1,6 +1,7 @@
 import { Prisma, prisma } from "@dian-study/infrastructure";
 import { AttemptConflictError, AttemptNotFoundError } from "./submit-question-attempt.js";
 import { ensureTopicProgress } from "./progression.js";
+import { publishableActivityEvidenceWhere } from "./legal-publication.js";
 
 async function requireOwnedSession(sessionId: string, studentId: string) {
   const session = await prisma.studySession.findUnique({ where: { id: sessionId } });
@@ -31,12 +32,34 @@ export async function getNextQuestion(sessionId: string, studentId: string, obje
       editorialStatus: "published",
       ...(objectiveId ? { objectiveId } : {}),
       objective: { topic: { block: { competencyId: session.competencyId } } },
-      evidences: { some: {} },
+      evidences: publishableActivityEvidenceWhere,
     },
     orderBy: [{ objective: { order: "asc" } }, { difficulty: "asc" }, { createdAt: "asc" }],
     include: { objective: true },
   });
   return question ? { question: safeQuestion(question), objective: question.objective } : null;
+}
+
+export async function getNextCase(sessionId: string, studentId: string, objectiveId?: string) {
+  const session = await requireOwnedSession(sessionId, studentId);
+  if (session.finishedAt) throw new AttemptConflictError("Study session is already finished");
+  if (session.mode !== "CASE") throw new AttemptConflictError("Case retrieval requires a case study session");
+  if (objectiveId) {
+    const belongs = await prisma.learningObjective.count({ where: { id: objectiveId, topic: { block: { competencyId: session.competencyId } } } });
+    if (!belongs) throw new AttemptConflictError("Learning objective does not belong to the session competency");
+  }
+  const previous = await prisma.caseAttempt.findMany({ where: { sessionId }, select: { caseId: true } });
+  const studyCase = await prisma.case.findFirst({
+    where: {
+      id: { notIn: previous.map(({ caseId }) => caseId) },
+      ...(objectiveId ? { objectiveId } : {}),
+      objective: { topic: { block: { competencyId: session.competencyId } } },
+      evidences: publishableActivityEvidenceWhere,
+    },
+    orderBy: [{ objective: { order: "asc" } }, { difficulty: "asc" }, { createdAt: "asc" }],
+    include: { objective: true },
+  });
+  return studyCase ? { case: { id: studyCase.id, objectiveId: studyCase.objectiveId, difficulty: studyCase.difficulty, scenario: studyCase.scenario }, objective: studyCase.objective } : null;
 }
 
 export async function finishStudySession(sessionId: string, studentId: string) {
@@ -45,10 +68,13 @@ export async function finishStudySession(sessionId: string, studentId: string) {
     const session = await tx.studySession.update({
       where: { id: sessionId }, data: { finishedAt: new Date() },
     });
-    const attempts = await tx.questionAttempt.findMany({
+    const [attempts, caseAttempts] = await Promise.all([
+      tx.questionAttempt.findMany({
       where: { sessionId }, orderBy: { createdAt: "asc" },
       include: { question: { include: { objective: true } }, mistakes: true },
-    });
+      }),
+      tx.caseAttempt.findMany({ where: { sessionId }, orderBy: { createdAt: "asc" }, include: { case: { include: { objective: true } } } }),
+    ]);
     return {
       session,
       accuracy: session.totalQuestions ? session.correctAnswers / session.totalQuestions : 0,
@@ -57,6 +83,7 @@ export async function finishStudySession(sessionId: string, studentId: string) {
         question: attempt.question.stem, objective: attempt.question.objective.name,
         mistakes: attempt.mistakes,
       })),
+      caseAttempts: caseAttempts.map((attempt) => ({ id: attempt.id, result: attempt.result, response: attempt.response, scenario: attempt.case.scenario, objective: attempt.case.objective.name })),
     };
   });
 }
@@ -77,7 +104,7 @@ export async function getStudentDashboard(studentId: string) {
     prisma.block.findMany({
       where: { status: "active", competency: { status: "active" } }, orderBy: { order: "asc" },
       include: { competency: { include: { opec: true } }, topics: { where: { status: "active" }, orderBy: { order: "asc" }, include: {
-        learningObjectives: { where: { status: "active" }, orderBy: { order: "asc" }, include: { _count: { select: { questions: { where: { editorialStatus: "published" } } } } } },
+        learningObjectives: { where: { status: "active" }, orderBy: { order: "asc" }, include: { _count: { select: { questions: { where: { editorialStatus: "published", evidences: publishableActivityEvidenceWhere } } } } } },
       } } },
     }),
     prisma.topicProgress.findMany({ where: { studentId } }),
@@ -151,7 +178,7 @@ export async function getObjectiveStudyGuide(objectiveId: string, studentId?: st
         include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } },
       },
       questions: {
-        where: { editorialStatus: "published", evidences: { some: {} } },
+        where: { editorialStatus: "published", evidences: publishableActivityEvidenceWhere },
         orderBy: [{ difficulty: "asc" }, { createdAt: "asc" }],
         select: {
           id: true, difficulty: true, explanation: true,
@@ -159,6 +186,7 @@ export async function getObjectiveStudyGuide(objectiveId: string, studentId?: st
         },
       },
       cases: {
+        where: { evidences: publishableActivityEvidenceWhere },
         orderBy: [{ difficulty: "asc" }, { createdAt: "asc" }],
         include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } },
       },
@@ -167,7 +195,7 @@ export async function getObjectiveStudyGuide(objectiveId: string, studentId?: st
   if (!objective) throw new AttemptNotFoundError("Learning objective not found");
 
   const evidenceById = new Map<string, {
-    id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string;
+    id: string; citation: string; content: string; documentId: string; provisionId: string; provisionNumber: string; provisionTitle: string;
     documentTitle: string; documentType: string; unitType: string; officialUrl: string;
     validationStatus: string; editorialStatus: string; status: "reviewed" | "pending";
     sourceKind: "primary" | "pedagogical";
@@ -178,6 +206,7 @@ export async function getObjectiveStudyGuide(objectiveId: string, studentId?: st
       || ["study_guide", "study_topic", "learning_route", "visual_extraction"].includes(evidence.provision.unitType);
     evidenceById.set(evidence.id, {
       id: evidence.id, citation: evidence.citation, content: evidence.content,
+      documentId: evidence.provision.documentId, provisionId: evidence.provisionId,
       provisionNumber: evidence.provision.number, provisionTitle: evidence.provision.title,
       documentTitle: evidence.provision.document.title, documentType: evidence.provision.document.documentType,
       unitType: evidence.provision.unitType, officialUrl: evidence.provision.document.officialUrl,
@@ -305,7 +334,7 @@ export async function getObjectiveStudyGuide(objectiveId: string, studentId?: st
 
 export async function getStudyLibrary(input: {
   documentId?: string; versionId?: string; query?: string; page?: number;
-  unitType?: string; validationStatus?: string; status?: string; withIssues?: boolean;
+  unitId?: string; unitType?: string; validationStatus?: string; status?: string; withIssues?: boolean;
 }) {
   const page = Math.max(1, Math.trunc(input.page ?? 1));
   const take = 12;
@@ -332,6 +361,7 @@ export async function getStudyLibrary(input: {
   const where: Prisma.LegalProvisionWhereInput = {
     documentId: selectedId,
     ...(selectedVersionId ? { versionId: selectedVersionId } : {}),
+    ...(input.unitId ? { id: input.unitId } : {}),
     ...(input.unitType ? { unitType: input.unitType } : {}),
     ...(input.validationStatus ? { validationStatus: input.validationStatus } : {}),
     ...(input.status ? { status: input.status } : {}),

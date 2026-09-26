@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { finishSession, getCurrentStudent, getDashboard, getNextQuestion, logout, startSession, submitAttempt } from "./api";
+import { finishSession, getCurrentStudent, getDashboard, getNextCase, getNextQuestion, logout, startSession, submitAttempt, submitCaseAttempt } from "./api";
 import { difficultyLabel, formatReviewDate, masteryPercent } from "./format";
-import type { AttemptResponse, AuthStudent, Dashboard, LearningObjective, Question, SessionStartResponse, SessionSummary } from "./types";
+import type { AttemptResponse, AuthStudent, CaseAttemptResponse, CaseExercise, Dashboard, LearningObjective, Question, SessionStartResponse, SessionSummary } from "./types";
 import { AuthScreen } from "./AuthScreen";
 import { EditorPanel } from "./EditorPanel";
 import { KnowledgePanel } from "./KnowledgePanel";
@@ -10,7 +10,7 @@ import { TopicKnowledgeMap } from "./TopicKnowledgeMap";
 import { StudyLibrary } from "./StudyLibrary";
 import { GuidedHome } from "./GuidedHome";
 
-type Screen = "checking" | "auth" | "welcome" | "guide" | "map" | "library" | "loading" | "question" | "feedback" | "summary" | "editor" | "knowledge" | "empty";
+type Screen = "checking" | "auth" | "welcome" | "guide" | "map" | "library" | "loading" | "question" | "feedback" | "case" | "case-feedback" | "summary" | "editor" | "knowledge" | "empty";
 
 function Brand() {
   return (
@@ -40,6 +40,9 @@ export function App() {
   const [selected, setSelected] = useState("");
   const [confidence, setConfidence] = useState(0.5);
   const [feedback, setFeedback] = useState<AttemptResponse | null>(null);
+  const [caseExercise, setCaseExercise] = useState<CaseExercise | null>(null);
+  const [caseAnswer, setCaseAnswer] = useState("");
+  const [caseFeedback, setCaseFeedback] = useState<CaseAttemptResponse | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [startedAt, setStartedAt] = useState(0);
@@ -51,6 +54,7 @@ export function App() {
   const [mapTopicId, setMapTopicId] = useState<string | undefined>();
   const [expandedBlockId, setExpandedBlockId] = useState<string | undefined>();
   const [expandedTopicId, setExpandedTopicId] = useState<string | undefined>();
+  const [librarySource, setLibrarySource] = useState<{ documentId: string; provisionId: string }>();
 
   function openGuide(objectiveId?: string) {
     if (!objectiveId) { begin(); return; }
@@ -61,8 +65,16 @@ export function App() {
     setMapTopicId(topicId); setScreen("map");
   }
 
+  function openSourceMaterial(documentId: string, provisionId: string) {
+    setLibrarySource({ documentId, provisionId }); setScreen("library");
+  }
+
+  function openLibrary() {
+    setLibrarySource(undefined); setScreen("library");
+  }
+
   useEffect(() => {
-    if (screen === "question") setStartedAt(Date.now());
+    if (screen === "question" || screen === "case") setStartedAt(Date.now());
   }, [screen, question?.id]);
 
   useEffect(() => {
@@ -104,6 +116,20 @@ export function App() {
     }
   }
 
+  async function beginCase(objectiveId: string) {
+    setScreen("loading"); setError("");
+    try {
+      setFocusObjectiveId(objectiveId);
+      const data = await startSession("CASE", objectiveId);
+      setSessionData(data);
+      const next = await getNextCase(data.session.id, objectiveId);
+      if (!next) { setScreen("empty"); return; }
+      setObjective(next.objective); setCaseExercise(next.case); setCaseAnswer(""); setCaseFeedback(null); setScreen("case");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No pudimos preparar el caso situacional."); setScreen("welcome");
+    }
+  }
+
   async function continueSession() {
     if (!sessionData) return;
     setScreen("loading"); setError("");
@@ -141,16 +167,33 @@ export function App() {
     } finally { setSubmitting(false); }
   }
 
+  async function answerCase() {
+    if (!caseExercise || !sessionData || caseAnswer.trim().length < 80) return;
+    setSubmitting(true); setError("");
+    try {
+      const result = await submitCaseAttempt({ sessionId: sessionData.session.id, caseId: caseExercise.id, response: caseAnswer, timeSpentMs: Math.max(1, Date.now() - startedAt) });
+      setCaseFeedback(result); setScreen("case-feedback");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No pudimos registrar tu análisis.");
+    } finally { setSubmitting(false); }
+  }
+
+  async function finishCase() {
+    if (!sessionData) return;
+    const result = await finishSession(sessionData.session.id); setSummary(result); setScreen("summary");
+    getDashboard().then(setDashboard).catch(() => undefined);
+  }
+
   function restart() {
     setSessionData(null); setObjective(null); setQuestion(null); setSelected("");
-    setFeedback(null); setSummary(null); setConfidence(0.5); setFocusObjectiveId(undefined); setScreen("welcome");
+    setFeedback(null); setCaseExercise(null); setCaseAnswer(""); setCaseFeedback(null); setSummary(null); setConfidence(0.5); setFocusObjectiveId(undefined); setScreen("welcome");
   }
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <Brand />
-        {student ? <div className="account-actions"><button className="editor-link" onClick={() => setScreen("library")}>Biblioteca</button>{student.role === "editor" && <><button className="editor-link" onClick={() => setScreen("knowledge")}>Fuentes</button><button className="editor-link" onClick={() => setScreen("editor")}>Preguntas</button></>}<button className="account-button" onClick={signOut}><span>{student.name.slice(0, 1).toUpperCase()}</span><span>{student.name}<small>Cerrar sesión</small></span></button></div> : <div className="topbar-meta">
+        {student ? <div className="account-actions"><button className="editor-link" onClick={openLibrary}>Biblioteca</button>{student.role === "editor" && <><button className="editor-link" onClick={() => setScreen("knowledge")}>Fuentes</button><button className="editor-link" onClick={() => setScreen("editor")}>Preguntas</button></>}<button className="account-button" onClick={signOut}><span>{student.name.slice(0, 1).toUpperCase()}</span><span>{student.name}<small>Cerrar sesión</small></span></button></div> : <div className="topbar-meta">
           <span className="status-dot" /> Contenido con respaldo normativo
         </div>}
       </header>
@@ -159,13 +202,45 @@ export function App() {
       {screen === "auth" && <AuthScreen onAuthenticated={authenticated}/>}
       {screen === "editor" && <EditorPanel onClose={() => setScreen("welcome")}/>}
       {screen === "knowledge" && <KnowledgePanel onClose={() => setScreen("welcome")}/>}
-      {screen === "library" && <StudyLibrary onClose={() => setScreen("welcome")}/>}
-      {screen === "guide" && guideObjectiveId && <GuidedStudy objectiveId={guideObjectiveId} onBack={() => setScreen("welcome")} onPractice={() => begin(guideObjectiveId, "PRACTICE")}/>}
+      {screen === "library" && <StudyLibrary initialDocumentId={librarySource?.documentId} initialUnitId={librarySource?.provisionId} onClose={() => { setLibrarySource(undefined); setScreen("welcome"); }}/>}
+      {screen === "guide" && guideObjectiveId && <GuidedStudy objectiveId={guideObjectiveId} onBack={() => setScreen("welcome")} onPractice={() => begin(guideObjectiveId, "PRACTICE")} onCase={() => beginCase(guideObjectiveId)} onOpenSource={openSourceMaterial}/>}
       {screen === "map" && mapTopicId && <TopicKnowledgeMap topicId={mapTopicId} onBack={() => setScreen("welcome")}/>}
 
-      {screen === "welcome" && <><GuidedHome dashboard={dashboard} studentName={student?.name ?? "Estudiante"} expandedBlockId={expandedBlockId} expandedTopicId={expandedTopicId} onBlockChange={setExpandedBlockId} onTopicChange={setExpandedTopicId} onLibrary={() => setScreen("library")} onGuide={openGuide} onPractice={(objectiveId, mode) => begin(objectiveId, mode)} onMap={openMap}/>{error && <div className="home-alert alert" role="alert">{error}</div>}</>}
+      {screen === "welcome" && <><GuidedHome dashboard={dashboard} studentName={student?.name ?? "Estudiante"} expandedBlockId={expandedBlockId} expandedTopicId={expandedTopicId} onBlockChange={setExpandedBlockId} onTopicChange={setExpandedTopicId} onLibrary={openLibrary} onGuide={openGuide} onPractice={(objectiveId, mode) => begin(objectiveId, mode)} onMap={openMap}/>{error && <div className="home-alert alert" role="alert">{error}</div>}</>}
 
       {screen === "loading" && <main className="center-state"><div className="loader"/><h2>Preparando tu sesión</h2><p>Organizando objetivos y evidencia jurídica…</p></main>}
+
+      {(screen === "case" || screen === "case-feedback") && caseExercise && objective && (
+        <main className="study-layout">
+          <aside className="study-sidebar">
+            <button className="text-button" onClick={restart}>← Salir del caso</button>
+            <div className="session-label">Caso situacional</div>
+            <h2>{sessionData?.competency.name}</h2>
+            <div className="objective-card"><span>01</span><div><small>Objetivo de aprendizaje</small><strong>{objective.name}</strong></div></div>
+            <div className="sidebar-note"><Icon name="shield"/><span>La respuesta se registra para autoevaluación; no se califica automáticamente una interpretación jurídica abierta.</span></div>
+          </aside>
+          <section className="study-main">
+            {screen === "case" ? <div className="question-wrap">
+              <div className="question-meta"><span>Análisis aplicado</span><span className="difficulty">{difficultyLabel(caseExercise.difficulty)}</span></div>
+              <h1>Examina la situación y sustenta tu respuesta</h1>
+              <p className="explanation">{caseExercise.scenario}</p>
+              <label className="case-response-label" htmlFor="case-response">Tu análisis jurídico</label>
+              <textarea id="case-response" rows={10} value={caseAnswer} onChange={(event) => setCaseAnswer(event.target.value)} placeholder="Explica los hechos relevantes, la regla aplicable, sus condiciones y la conclusión. Escribe al menos 80 caracteres."/>
+              <small>{caseAnswer.trim().length}/80 caracteres mínimos</small>
+              {error && <div className="alert" role="alert">{error}</div>}
+              <button className="button primary wide" disabled={caseAnswer.trim().length < 80 || submitting} onClick={answerCase}>{submitting ? "Registrando…" : "Registrar y contrastar análisis"}</button>
+            </div> : caseFeedback && <div className="feedback-wrap">
+              <div className="result-badge correct">Respuesta registrada</div>
+              <h1>Contrasta tu razonamiento.</h1>
+              <p className="explanation">Este ejercicio no usa una calificación automática. Compara tu análisis con la referencia editorial y las fuentes antes de cerrar.</p>
+              <div className="diagnosis-card"><small>Referencia editorial</small><strong>{caseFeedback.expectedAnalysis}</strong></div>
+              {caseFeedback.evidence.map((evidence) => <article className="evidence-card" key={evidence.evidenceId}><div className="evidence-heading"><Icon name="book"/><div><small>Fundamento jurídico</small><strong>{evidence.citation}</strong></div></div><blockquote>{evidence.content}</blockquote></article>)}
+              <div className="review-card"><Icon name="clock"/><div><small>Próxima revisión sugerida</small><strong>{formatReviewDate(caseFeedback.nextReviewDate)}</strong></div></div>
+              <button className="button primary wide" onClick={finishCase}>Finalizar caso <span aria-hidden="true">→</span></button>
+            </div>}
+          </section>
+        </main>
+      )}
 
       {(screen === "question" || screen === "feedback") && question && objective && (
         <main className="study-layout">
@@ -186,7 +261,15 @@ export function App() {
                 <h1>{question.stem}</h1>
                 <div className="options" role="radiogroup" aria-label="Opciones de respuesta">
                   {question.options?.map((option) => (
-                    <button key={option.key} role="radio" aria-checked={selected === option.key} className={`option ${selected === option.key ? "selected" : ""}`} onClick={() => setSelected(option.key)}>
+                    <button key={option.key} role="radio" aria-checked={selected === option.key} className={`option ${selected === option.key ? "selected" : ""}`} onClick={() => setSelected(option.key)} onKeyDown={(event) => {
+                      if (!question.options?.length || !["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(event.key)) return;
+                      event.preventDefault();
+                      const index = question.options.findIndex(({ key }) => key === option.key);
+                      const direction = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1;
+                      const nextIndex = (index + direction + question.options.length) % question.options.length;
+                      setSelected(question.options[nextIndex].key);
+                      event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role=radio]")[nextIndex]?.focus();
+                    }}>
                       <span>{option.key}</span><strong>{option.text}</strong>
                     </button>
                   ))}
