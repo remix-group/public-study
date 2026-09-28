@@ -512,9 +512,13 @@ async function seedCuratedTopics12To24(prisma: PrismaClient) {
       : [];
     const usableProvisions = sourceProvisions.filter((provision) => {
       const label = `${provision.number} ${provision.title} ${provision.content}`;
+      const compactContent = provision.content.trim().replace(/\s+/g, " ");
+      const looksLikeContentsEntry = /^\d+(?:\.\d+){1,3}\.?\s+\D.+\s+\d{1,3}$/.test(compactContent)
+        || /\b(?:conclusiones|glosario)\s+\d{1,3}\b/i.test(compactContent);
       return provision.unitType !== "visual_extraction"
         && !/bibliograf[ií]a|tabla de contenido|manual completo|tema 25|harvard business review|unesco|sanguinetti/i.test(label)
-        && !/\.{4,}\s*\d+/.test(provision.content);
+        && !/\.{4,}\s*\d+/.test(provision.content)
+        && !looksLikeContentsEntry;
     });
     const selectedProvisions = [
       ...usableProvisions.filter((provision) => topic.preferredNumbers?.some((pattern) => pattern.test(provision.number))),

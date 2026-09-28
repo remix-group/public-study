@@ -1,6 +1,7 @@
 import { prisma } from "@dian-study/infrastructure";
 import type { AiProvider } from "../ai/provider.js";
 import { AttemptConflictError, AttemptNotFoundError } from "./submit-question-attempt.js";
+import { isPublishableProvision } from "./legal-publication.js";
 
 export async function generateDocumentStudyMaterial(documentId: string, provider: AiProvider) {
   const document = await prisma.legalDocument.findUnique({
@@ -9,11 +10,18 @@ export async function generateDocumentStudyMaterial(documentId: string, provider
   });
   if (!document) throw new AttemptNotFoundError("Legal document not found");
   if (!document.provisions.length) throw new AttemptConflictError("El documento aún no contiene unidades jurídicas extraídas");
+  if (document.pipelineStatus !== "PUBLISHED" || !document.officialUrl.trim() || !document.effectiveFrom || document.status !== "vigente") {
+    throw new AttemptConflictError("La generación solo está disponible para una fuente oficial vigente y publicada tras revisión humana");
+  }
   const objectives = await prisma.learningObjective.findMany({ where: { status: "active", topic: { status: "active", block: { status: "active", competency: { status: "active" } } } }, orderBy: [{ topic: { block: { order: "asc" } } }, { topic: { order: "asc" } }, { order: "asc" }] });
   if (!objectives.length) throw new AttemptConflictError("No hay objetivos de aprendizaje configurados");
 
   const approved = await prisma.$transaction(async (tx) => {
-    await tx.legalProvision.updateMany({ where: { id: { in: document.provisions.map(({ id }) => id) }, validationStatus: "pending" }, data: { validationStatus: "approved", editorialStatus: "published" } });
+    for (const unit of document.provisions) {
+      if (!isPublishableProvision({ ...unit, document })) {
+        throw new AttemptConflictError("Todas las unidades usadas por la IA deben estar aprobadas y publicadas antes de generar borradores");
+      }
+    }
     return Promise.all(document.provisions.map(async (unit) => {
       const existing = await tx.evidence.findFirst({ where: { provisionId: unit.id } });
       return existing ?? tx.evidence.create({ data: { provisionId: unit.id, content: unit.content, citation: unit.citation } });
@@ -39,11 +47,10 @@ export async function generateDocumentStudyMaterial(documentId: string, provider
       const duplicate = await tx.question.findFirst({ where: { objectiveId: question.objectiveId, stem: question.stem } });
       if (duplicate) { skipped += 1; continue; }
       const evidence = evidenceByProvision.get(question.provisionId)!;
-      const saved = await tx.question.create({ data: { objectiveId: question.objectiveId, type: "multiple_choice", difficulty: question.difficulty, stem: question.stem, options: question.options, correctAnswer: question.correctAnswer, explanation: question.explanation, editorialStatus: "published" } });
+      const saved = await tx.question.create({ data: { objectiveId: question.objectiveId, type: "multiple_choice", difficulty: question.difficulty, stem: question.stem, options: question.options, correctAnswer: question.correctAnswer, explanation: question.explanation, editorialStatus: "draft" } });
       await tx.questionEvidence.create({ data: { questionId: saved.id, evidenceId: evidence.id } });
       created += 1;
     }
-    await tx.legalDocument.update({ where: { id: documentId }, data: { pipelineStatus: "PUBLISHED" } });
   });
-  return { documentId, provider: provider.name, unitsApproved: document.provisions.length, evidencesReady: approved.length, questionsCreated: created, questionsSkipped: skipped };
+  return { documentId, provider: provider.name, unitsReadyForReview: document.provisions.length, evidencesReady: approved.length, questionsCreated: created, questionsSkipped: skipped };
 }

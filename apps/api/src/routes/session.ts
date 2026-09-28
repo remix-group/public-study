@@ -7,6 +7,8 @@ import {
   submitQuestionAttempt,
 } from "../application/submit-question-attempt.js";
 import { finishStudySession, getNextQuestion } from "../application/study-session-progress.js";
+import { getNextCase } from "../application/study-session-progress.js";
+import { submitCaseAttempt } from "../application/submit-case-attempt.js";
 import { requireAuth } from "../auth/middleware.js";
 
 export const sessionRouter: ExpressRouter = Router();
@@ -23,6 +25,9 @@ const attemptSchema = z.object({
   answer: z.string().min(1),
   timeSpentMs: z.number().int().positive(),
   confidence: z.number().min(0).max(1).optional(),
+});
+const caseAttemptSchema = z.object({
+  caseId: z.string().min(1), sessionId: z.string().min(1), response: z.string().trim().min(80).max(8_000), timeSpentMs: z.number().int().positive(),
 });
 
 sessionRouter.post("/", async (req, res, next) => {
@@ -46,10 +51,33 @@ sessionRouter.post("/attempt", async (req, res, next) => {
   }
 });
 
+sessionRouter.post("/case-attempt", async (req, res, next) => {
+  try {
+    res.status(201).json(await submitCaseAttempt({ ...caseAttemptSchema.parse(req.body), studentId: res.locals.studentId }));
+  } catch (error) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+    if (error instanceof AttemptNotFoundError) return res.status(404).json({ error: error.message });
+    if (error instanceof AttemptConflictError) return res.status(409).json({ error: error.message });
+    next(error);
+  }
+});
+
 sessionRouter.get("/:sessionId/next", async (req, res, next) => {
   try {
     const objectiveId = z.string().min(1).optional().parse(req.query.objectiveId);
     res.json(await getNextQuestion(req.params.sessionId, res.locals.studentId, objectiveId));
+  } catch (error) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+    if (error instanceof AttemptNotFoundError) return res.status(404).json({ error: error.message });
+    if (error instanceof AttemptConflictError) return res.status(409).json({ error: error.message });
+    next(error);
+  }
+});
+
+sessionRouter.get("/:sessionId/next-case", async (req, res, next) => {
+  try {
+    const objectiveId = z.string().min(1).optional().parse(req.query.objectiveId);
+    res.json(await getNextCase(req.params.sessionId, res.locals.studentId, objectiveId));
   } catch (error) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
     if (error instanceof AttemptNotFoundError) return res.status(404).json({ error: error.message });

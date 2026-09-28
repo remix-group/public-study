@@ -1,4 +1,4 @@
-import type { AttemptResponse, AuthStudent, Dashboard, EditorialCatalog, EditorialQuestion, EditorialQuestionInput, KnowledgeCatalog, LegalDocumentView, LegalUnitView, LegalVersionView, NextQuestionResponse, SessionStartResponse, SessionSummary, StudyGuide, StudyLibrary, TopicKnowledgeGraph } from "./types";
+import type { AttemptResponse, AuthStudent, CaseAttemptResponse, Dashboard, EditorialCatalog, EditorialQuestion, EditorialQuestionInput, KnowledgeCatalog, LegalDocumentView, LegalUnitView, LegalVersionView, NextCaseResponse, NextQuestionResponse, SessionStartResponse, SessionSummary, StudyGuide, StudyLibrary, TopicKnowledgeGraph } from "./types";
 
 const COMPETENCY_ID = "competency-cobro-coactivo";
 
@@ -27,6 +27,10 @@ export function getNextQuestion(sessionId: string, objectiveId?: string) {
   const query = objectiveId ? `?objectiveId=${encodeURIComponent(objectiveId)}` : "";
   return request<NextQuestionResponse | null>(`/api/sessions/${sessionId}/next${query}`);
 }
+export function getNextCase(sessionId: string, objectiveId?: string) {
+  const query = objectiveId ? `?objectiveId=${encodeURIComponent(objectiveId)}` : "";
+  return request<NextCaseResponse | null>(`/api/sessions/${sessionId}/next-case${query}`);
+}
 
 export function submitAttempt(input: {
   sessionId: string;
@@ -39,6 +43,9 @@ export function submitAttempt(input: {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+export function submitCaseAttempt(input: { sessionId: string; caseId: string; response: string; timeSpentMs: number }) {
+  return request<CaseAttemptResponse>("/api/sessions/case-attempt", { method: "POST", body: JSON.stringify(input) });
 }
 
 export function finishSession(sessionId: string) {
@@ -53,12 +60,13 @@ export function getDashboard() {
 export function getStudyGuide(objectiveId: string) { return request<StudyGuide>(`/api/learning/objectives/${objectiveId}/guide`); }
 export function getStudyLibrary(input: {
   documentId?: string; versionId?: string; query?: string; page?: number; unitType?: string;
-  validationStatus?: string; status?: string; withIssues?: boolean;
+  unitId?: string; validationStatus?: string; status?: string; withIssues?: boolean;
 } = {}) {
-  const { documentId, versionId, query, page = 1, unitType, validationStatus, status, withIssues } = input;
+  const { documentId, versionId, query, page = 1, unitId, unitType, validationStatus, status, withIssues } = input;
   const params = new URLSearchParams({ page: String(page) });
   if (documentId) params.set("documentId", documentId);
   if (versionId) params.set("versionId", versionId);
+  if (unitId) params.set("unitId", unitId);
   if (query) params.set("query", query);
   if (unitType) params.set("unitType", unitType);
   if (validationStatus) params.set("validationStatus", validationStatus);
@@ -97,7 +105,7 @@ export function ingestKnowledgePdf(documentId: string, file: File, versionLabel:
   });
 }
 export function generateKnowledgeMaterial(documentId: string) {
-  return request<{ provider: string; unitsApproved: number; evidencesReady: number; questionsCreated: number; questionsSkipped: number }>(`/api/knowledge/documents/${documentId}/generate`, { method: "POST", body: JSON.stringify({}) });
+  return request<{ provider: string; unitsReadyForReview: number; evidencesReady: number; questionsCreated: number; questionsSkipped: number }>(`/api/knowledge/documents/${documentId}/generate`, { method: "POST", body: JSON.stringify({}) });
 }
 export function getManualGenerationPrompt(documentId: string) {
   return request<{ documentId: string; documentTitle: string; prompt: string; provisionCount: number; objectiveCount: number }>(`/api/knowledge/documents/${documentId}/generation-prompt`);
@@ -105,5 +113,5 @@ export function getManualGenerationPrompt(documentId: string) {
 export function importKnowledgeMaterial(documentId: string, generatedJson: string) {
   let body: unknown;
   try { body = JSON.parse(generatedJson); } catch { throw new Error("El contenido pegado no es JSON válido."); }
-  return request<{ provider: string; unitsApproved: number; evidencesReady: number; questionsCreated: number; questionsSkipped: number }>(`/api/knowledge/documents/${documentId}/import-material`, { method: "POST", body: JSON.stringify(body) });
+  return request<{ provider: string; unitsReadyForReview: number; evidencesReady: number; questionsCreated: number; questionsSkipped: number }>(`/api/knowledge/documents/${documentId}/import-material`, { method: "POST", body: JSON.stringify(body) });
 }

@@ -11,10 +11,11 @@ function humanStatus(value: string) {
   return value.replaceAll("_", " ").toLocaleLowerCase("es-CO");
 }
 
-export function StudyLibrary({ onClose }: { onClose: () => void }) {
+export function StudyLibrary({ onClose, initialDocumentId, initialUnitId }: { onClose: () => void; initialDocumentId?: string; initialUnitId?: string }) {
   const [library, setLibrary] = useState<StudyLibraryData | null>(null);
-  const [documentId, setDocumentId] = useState<string>();
+  const [documentId, setDocumentId] = useState<string | undefined>(initialDocumentId);
   const [versionId, setVersionId] = useState<string>();
+  const [directUnitId, setDirectUnitId] = useState<string | undefined>(initialUnitId);
   const [query, setQuery] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
   const [catalogQuery, setCatalogQuery] = useState("");
@@ -29,8 +30,13 @@ export function StudyLibrary({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setDocumentId(initialDocumentId); setVersionId(undefined); setDirectUnitId(initialUnitId); setPage(1);
+    setQuery(""); setActiveQuery(""); setUnitType(""); setValidationStatus(""); setStatus(""); setWithIssues(false);
+  }, [initialDocumentId, initialUnitId]);
+
+  useEffect(() => {
     setLoading(true); setError("");
-    getStudyLibrary({ documentId, versionId, query: activeQuery, page, unitType, validationStatus, status, withIssues })
+    getStudyLibrary({ documentId, versionId, unitId: directUnitId, query: activeQuery, page, unitType, validationStatus, status, withIssues })
       .then((result) => {
         setLibrary(result);
         if (!documentId && result.selectedDocument) setDocumentId(result.selectedDocument.id);
@@ -38,14 +44,14 @@ export function StudyLibrary({ onClose }: { onClose: () => void }) {
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "No se pudo cargar la biblioteca."))
       .finally(() => setLoading(false));
-  }, [documentId, versionId, activeQuery, page, unitType, validationStatus, status, withIssues]);
+  }, [documentId, versionId, directUnitId, activeQuery, page, unitType, validationStatus, status, withIssues]);
 
   function search(event: FormEvent) {
-    event.preventDefault(); setPage(1); setActiveQuery(query.trim());
+    event.preventDefault(); setDirectUnitId(undefined); setPage(1); setActiveQuery(query.trim());
   }
 
   function resetDocument(nextId: string) {
-    setDocumentId(nextId); setVersionId(undefined); setPage(1); setQuery(""); setActiveQuery("");
+    setDocumentId(nextId); setVersionId(undefined); setDirectUnitId(undefined); setPage(1); setQuery(""); setActiveQuery("");
     setUnitType(""); setValidationStatus(""); setStatus(""); setWithIssues(false); setShowHash(false);
   }
 
@@ -87,7 +93,7 @@ export function StudyLibrary({ onClose }: { onClose: () => void }) {
           {showHash && <code className="library-hash">SHA-256 {activeDocument.contentHash || "No disponible"}</code>}
         </div>}
 
-        <form className="library-search" onSubmit={search}><label htmlFor="material-search">Buscar en número, título o transcripción</label><div><input id="material-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ej. artículo 823, medidas cautelares, término…"/><button className="button primary">Buscar</button></div><div className="library-filters"><select aria-label="Tipo de unidad" value={unitType} onChange={(event) => { setUnitType(event.target.value); setPage(1); }}><option value="">Todos los tipos</option>{library?.unitTypes.map((type) => <option key={type} value={type}>{type.replaceAll("_", " ")}</option>)}</select><select aria-label="Estado de revisión" value={validationStatus} onChange={(event) => { setValidationStatus(event.target.value); setPage(1); }}><option value="">Toda revisión</option><option value="pending">Pendiente</option><option value="approved">Aprobado</option><option value="rejected">Rechazado</option></select><select aria-label="Estado de vigencia" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">Toda vigencia</option><option value="vigente">Vigente</option><option value="pending_review">Sin verificar</option><option value="modificado">Modificado</option><option value="derogado">Derogado</option></select></div></form>
+        <form className="library-search" onSubmit={search}><label htmlFor="material-search">Buscar en número, título o transcripción</label><div><input id="material-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ej. artículo 823, medidas cautelares, término…"/><button className="button primary">Buscar</button></div>{directUnitId && <small className="library-direct-link">Mostrando la unidad vinculada desde el extracto.</small>}<div className="library-filters"><select aria-label="Tipo de unidad" value={unitType} onChange={(event) => { setDirectUnitId(undefined); setUnitType(event.target.value); setPage(1); }}><option value="">Todos los tipos</option>{library?.unitTypes.map((type) => <option key={type} value={type}>{type.replaceAll("_", " ")}</option>)}</select><select aria-label="Estado de revisión" value={validationStatus} onChange={(event) => { setDirectUnitId(undefined); setValidationStatus(event.target.value); setPage(1); }}><option value="">Toda revisión</option><option value="pending">Pendiente</option><option value="approved">Aprobado</option><option value="rejected">Rechazado</option></select><select aria-label="Estado de vigencia" value={status} onChange={(event) => { setDirectUnitId(undefined); setStatus(event.target.value); setPage(1); }}><option value="">Toda vigencia</option><option value="vigente">Vigente</option><option value="pending_review">Sin verificar</option><option value="modificado">Modificado</option><option value="derogado">Derogado</option></select></div></form>
 
         {error && <div className="alert">{error}</div>}
         {loading ? <div className="library-loading"><div className="loader"/><p>Cargando material…</p></div> : <div className="library-units">{library?.units.length ? library.units.map((unit) => {

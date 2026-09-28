@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@dian-study/infrastructure";
 import { startStudySession } from "./start-study-session.js";
 import { submitQuestionAttempt } from "./submit-question-attempt.js";
-import { finishStudySession, getNextQuestion, getObjectiveStudyGuide, getStudentDashboard, getStudyLibrary } from "./study-session-progress.js";
+import { finishStudySession, getNextCase, getNextQuestion, getObjectiveStudyGuide, getStudentDashboard, getStudyLibrary } from "./study-session-progress.js";
 import { hashPassword } from "../auth/crypto.js";
 import { loginStudent } from "../auth/service.js";
 import { createEditorialQuestion, setQuestionPublication } from "./editorial-content.js";
@@ -10,6 +10,7 @@ import { createLegalDocument, createLegalEvidence, createLegalUnit, createLegalV
 import { generateDocumentStudyMaterial } from "./automated-content.js";
 import type { AiProvider } from "../ai/provider.js";
 import { buildManualGenerationPrompt } from "./manual-content.js";
+import { submitCaseAttempt } from "./submit-case-attempt.js";
 
 const integration = process.env.DATABASE_URL ? describe : describe.skip;
 const studentId = "student-integration-test";
@@ -21,6 +22,9 @@ let knowledgeUnitId = "";
 let knowledgeEvidenceId = "";
 let knowledgeRelationId = "";
 let automatedQuestionId = "";
+let rejectedPublicationQuestionId = "";
+let caseSessionId = "";
+let integrationCaseId = "";
 
 integration("study flow AC-001/002/003", () => {
   it("starts a session and returns the competency objectives", async () => {
@@ -96,6 +100,18 @@ integration("study flow AC-001/002/003", () => {
     expect(published.reviewedBy).toBe(studentId);
   });
 
+  it("refuses to publish a question when its legal source is still pending review", async () => {
+    const pendingEvidence = await prisma.evidence.findFirstOrThrow({ where: { provision: { validationStatus: "pending" } } });
+    const created = await createEditorialQuestion({
+      objectiveId: "objective-alcance-art-823", difficulty: 0.4,
+      stem: "¿Pregunta de control que no debe publicarse con una fuente pendiente?",
+      options: [{ key: "A", text: "Sí" }, { key: "B", text: "No" }], correctAnswer: "A",
+      explanation: "La publicación exige que toda fuente jurídica esté revisada y vigente.", evidenceIds: [pendingEvidence.id],
+    });
+    rejectedPublicationQuestionId = created.id;
+    await expect(setQuestionPublication(created.id, true, studentId)).rejects.toThrow("fuentes oficiales");
+  });
+
   it("versions a source and only creates evidence from an approved legal unit", async () => {
     const document = await createLegalDocument({ title: "Documento temporal", authority: "DIAN", documentType: "concept", officialUrl: "https://www.dian.gov.co/", effectiveFrom: new Date("2026-01-01") });
     knowledgeDocumentId = document.id;
@@ -113,7 +129,10 @@ integration("study flow AC-001/002/003", () => {
     knowledgeRelationId = relation.id;
   });
 
-  it("generates and publishes evidence-backed material through the provider abstraction", async () => {
+  it("generates reviewable drafts through the provider abstraction without auto-publishing legal content", async () => {
+    for (const state of ["EXTRACTED", "PARSED", "ENRICHED", "INDEXED", "DRAFT_KNOWLEDGE", "REVIEW_REQUIRED", "PUBLISHED"]) {
+      await transitionDocument(knowledgeDocumentId, state);
+    }
     const exported = await buildManualGenerationPrompt(knowledgeDocumentId);
     expect(exported.prompt).toContain(knowledgeUnitId);
     expect(exported.prompt).toContain("objective-alcance-art-823");
@@ -127,7 +146,7 @@ integration("study flow AC-001/002/003", () => {
     expect(result.questionsCreated).toBe(1);
     const generated = await prisma.question.findFirst({ where: { stem: { contains: "contenido jurídico temporal" } } });
     automatedQuestionId = generated?.id ?? "";
-    expect(generated?.editorialStatus).toBe("published");
+    expect(generated?.editorialStatus).toBe("draft");
   });
 
   it("atomically records an incorrect attempt, evidence, mistake, mastery and review", async () => {
@@ -147,6 +166,29 @@ integration("study flow AC-001/002/003", () => {
     expect(review?.completed).toBe(false);
   });
 
+  it("records an evidence-backed situational case as guided self-review", async () => {
+    const studyCase = await prisma.case.create({ data: {
+      objectiveId: "objective-alcance-art-823", difficulty: 0.7,
+      scenario: "Una obligación exigible no ha sido pagada. Explica cómo debe iniciar la actuación de cobro.",
+      expectedAnalysis: "La actuación se inicia por funcionario competente con mandamiento de pago conforme a la norma aplicable.",
+    } });
+    integrationCaseId = studyCase.id;
+    await prisma.caseEvidence.create({ data: { caseId: studyCase.id, evidenceId: "evidence-et-823-scope" } });
+    const caseSession = await startStudySession({ studentId, competencyId: "competency-cobro-coactivo", mode: "CASE", focusObjectiveId: "objective-alcance-art-823" });
+    caseSessionId = caseSession.session.id;
+    const next = await getNextCase(caseSessionId, studentId, "objective-alcance-art-823");
+    expect(next?.case.id).toBe(integrationCaseId);
+    const result = await submitCaseAttempt({
+      studentId, sessionId: caseSessionId, caseId: integrationCaseId, timeSpentMs: 3_000,
+      response: "La administración debe identificar la obligación exigible y expedir el mandamiento de pago por el funcionario competente, indicando la obligación y el término para atenderla.",
+    });
+    expect(result.evaluationMethod).toBe("self_review");
+    expect(result.expectedAnalysis).toContain("mandamiento de pago");
+    expect(result.evidence).toHaveLength(1);
+    const summary = await finishStudySession(caseSessionId, studentId);
+    expect(summary.caseAttempts).toHaveLength(1);
+  });
+
   it("selects an unanswered question, finishes the session and exposes progress", async () => {
     const next = await getNextQuestion(sessionId, studentId);
     expect(next?.question.id).not.toBe("question-et-823-1");
@@ -156,12 +198,12 @@ integration("study flow AC-001/002/003", () => {
     expect(summary.session.finishedAt).not.toBeNull();
     expect(summary.attempts).toHaveLength(1);
     const dashboard = await getStudentDashboard(studentId);
-    expect(dashboard.objectives.find(({ objectiveId }) => objectiveId === "objective-alcance-art-823")?.totalAttempts).toBe(1);
+    expect(dashboard.objectives.find(({ objectiveId }) => objectiveId === "objective-alcance-art-823")?.totalAttempts).toBe(2);
     expect(dashboard.objectives).toHaveLength(29);
     expect(dashboard.route).toHaveLength(6);
     expect(dashboard.route.reduce((total, block) => total + block.topics.length, 0)).toBe(25);
     expect(dashboard.recommendedObjective?.accessible).toBe(true);
-    expect(dashboard.recentSessions).toHaveLength(1);
+    expect(dashboard.recentSessions).toHaveLength(2);
   });
 });
 
@@ -170,6 +212,10 @@ afterAll(async () => {
   if (editorialQuestionId) {
     await prisma.questionEvidence.deleteMany({ where: { questionId: editorialQuestionId } });
     await prisma.question.deleteMany({ where: { id: editorialQuestionId } });
+  }
+  if (rejectedPublicationQuestionId) {
+    await prisma.questionEvidence.deleteMany({ where: { questionId: rejectedPublicationQuestionId } });
+    await prisma.question.deleteMany({ where: { id: rejectedPublicationQuestionId } });
   }
   if (knowledgeRelationId) await prisma.legalRelation.deleteMany({ where: { id: knowledgeRelationId } });
   if (automatedQuestionId) {
@@ -180,9 +226,15 @@ afterAll(async () => {
   if (knowledgeUnitId) await prisma.legalProvision.deleteMany({ where: { id: knowledgeUnitId } });
   if (knowledgeVersionId) await prisma.legalVersion.deleteMany({ where: { id: knowledgeVersionId } });
   if (knowledgeDocumentId) await prisma.legalDocument.deleteMany({ where: { id: knowledgeDocumentId } });
+  if (integrationCaseId) {
+    await prisma.caseAttempt.deleteMany({ where: { caseId: integrationCaseId } });
+    await prisma.caseEvidence.deleteMany({ where: { caseId: integrationCaseId } });
+    await prisma.case.deleteMany({ where: { id: integrationCaseId } });
+  }
   const attempts = await prisma.questionAttempt.findMany({ where: { studentId }, select: { id: true } });
   await prisma.mistake.deleteMany({ where: { questionAttemptId: { in: attempts.map(({ id }) => id) } } });
   await prisma.questionAttempt.deleteMany({ where: { studentId } });
+  await prisma.caseAttempt.deleteMany({ where: { studentId } });
   await prisma.reviewSchedule.deleteMany({ where: { studentId } });
   await prisma.masteryState.deleteMany({ where: { studentId } });
   await prisma.studySession.deleteMany({ where: { studentId } });
