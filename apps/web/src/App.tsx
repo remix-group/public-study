@@ -47,6 +47,7 @@ export function App() {
   const [submitting, setSubmitting] = useState(false);
   const [startedAt, setStartedAt] = useState(0);
   const [questionNumber, setQuestionNumber] = useState(1);
+  const [sessionQuestionTarget, setSessionQuestionTarget] = useState(10);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [focusObjectiveId, setFocusObjectiveId] = useState<string | undefined>();
@@ -102,6 +103,10 @@ export function App() {
     setScreen("loading"); setError("");
     try {
       setFocusObjectiveId(objectiveId);
+      const objectiveQuestionCount = objectiveId
+        ? dashboard?.objectives.find((item) => item.objectiveId === objectiveId)?.questionCount
+        : undefined;
+      setSessionQuestionTarget(Math.max(1, objectiveQuestionCount ?? 10));
       const data = await startSession(mode, objectiveId);
       setSessionData(data);
       const next = await getNextQuestion(data.session.id, objectiveId);
@@ -134,6 +139,12 @@ export function App() {
     if (!sessionData) return;
     setScreen("loading"); setError("");
     try {
+      if (questionNumber >= sessionQuestionTarget) {
+        const result = await finishSession(sessionData.session.id);
+        setSummary(result); setScreen("summary");
+        getDashboard().then(setDashboard).catch(() => undefined);
+        return;
+      }
       const next = await getNextQuestion(sessionData.session.id, focusObjectiveId);
       if (next) {
         setQuestion(next.question); setObjective(next.objective); setSelected(""); setConfidence(0.5);
@@ -186,7 +197,7 @@ export function App() {
 
   function restart() {
     setSessionData(null); setObjective(null); setQuestion(null); setSelected("");
-    setFeedback(null); setCaseExercise(null); setCaseAnswer(""); setCaseFeedback(null); setSummary(null); setConfidence(0.5); setFocusObjectiveId(undefined); setScreen("welcome");
+    setFeedback(null); setCaseExercise(null); setCaseAnswer(""); setCaseFeedback(null); setSummary(null); setConfidence(0.5); setFocusObjectiveId(undefined); setSessionQuestionTarget(10); setScreen("welcome");
   }
 
   return (
@@ -248,8 +259,8 @@ export function App() {
             <button className="text-button" onClick={restart}>← Salir de la sesión</button>
             <div className="session-label">Sesión actual</div>
             <h2>{sessionData?.competency.name}</h2>
-            <div className="progress-copy"><span>Pregunta {questionNumber} de 10</span><span>{questionNumber * 10}%</span></div>
-            <div className="progress-track"><span style={{ width: `${questionNumber * 10}%` }}/></div>
+            <div className="progress-copy"><span>Pregunta {questionNumber} de {sessionQuestionTarget}</span><span>{Math.min(100, Math.round((questionNumber / sessionQuestionTarget) * 100))}%</span></div>
+            <div className="progress-track"><span style={{ width: `${Math.min(100, (questionNumber / sessionQuestionTarget) * 100)}%` }}/></div>
             <div className="objective-card"><span>01</span><div><small>Objetivo de aprendizaje</small><strong>{objective.name}</strong></div></div>
             <div className="sidebar-note"><Icon name="shield"/><span>La evaluación usa evidencia jurídica almacenada y trazable.</span></div>
           </aside>
@@ -257,7 +268,7 @@ export function App() {
           <section className="study-main">
             {screen === "question" ? (
               <div className="question-wrap">
-                <div className="question-meta"><span>Pregunta {questionNumber} de 10</span><span className="difficulty">{difficultyLabel(question.difficulty)}</span></div>
+                <div className="question-meta"><span>Pregunta {questionNumber} de {sessionQuestionTarget}</span><span className="difficulty">{difficultyLabel(question.difficulty)}</span></div>
                 <h1>{question.stem}</h1>
                 <div className="options" role="radiogroup" aria-label="Opciones de respuesta">
                   {question.options?.map((option) => (
@@ -301,7 +312,7 @@ export function App() {
                 ))}
                 <div className="review-card"><Icon name="clock"/><div><small>Próxima revisión sugerida</small><strong>{formatReviewDate(feedback.nextReviewDate)}</strong></div></div>
                 {error && <div className="alert" role="alert">{error}</div>}
-                <button className="button primary wide" onClick={continueSession}>Siguiente pregunta <span aria-hidden="true">→</span></button>
+                <button className="button primary wide" onClick={continueSession}>{questionNumber >= sessionQuestionTarget ? "Finalizar sesión" : "Siguiente pregunta"} <span aria-hidden="true">→</span></button>
               </div>
             )}
           </section>

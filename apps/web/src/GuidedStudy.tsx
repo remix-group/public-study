@@ -93,16 +93,20 @@ function shouldDisplaySource(evidence: StudyGuide["evidences"][number]) {
   return normalizeText(raw).length >= 55;
 }
 
-function sourcePresentation(evidence: StudyGuide["evidences"][number]) {
+export function sourcePresentation(evidence: StudyGuide["evidences"][number]) {
   const hadListMarker = /^(?:[a-z]|\d+(?:\.\d+)*)\s*[.)]\s*/i.test(evidence.content.trim());
   const rawContent = withoutListMarker(evidence.content);
   const number = withoutListMarker(normalizeText(evidence.provisionNumber));
   const storedTitle = withoutListMarker(normalizeText(evidence.provisionTitle));
   const contentTitle = rawContent.match(new RegExp(`^${matchableHeading(number)}\\s*[.:\\-–—]+\\s*([^.!?\\n]+)`, "i"))?.[1];
-  const candidate = normalizeText(contentTitle || storedTitle);
-  const genericTitle = /^(bibliograf[ií]a|referencias|tabla de contenido|manual completo|extracci[oó]n visual|documentos relacionados|definiciones y siglas)$/i.test(candidate);
-  const title = (hadListMarker ? listItemTitle(rawContent) : undefined) ?? (!genericTitle && candidate.length >= 4 && candidate.length <= 76 && !/https?:\/\//i.test(candidate)
-    ? candidate.replace(/[.:]+$/, "")
+  const genericHeading = /^(bibliograf[ií]a|referencias|tabla de contenido|manual completo|extracci[oó]n visual|documentos relacionados|definiciones y siglas)$/i;
+  const storedTitleIsUseful = storedTitle.length >= 4 && !genericHeading.test(storedTitle) && !/https?:\/\//i.test(storedTitle);
+  const candidate = normalizeText(storedTitleIsUseful ? storedTitle : contentTitle || storedTitle);
+  const genericTitle = genericHeading.test(candidate);
+  const meaningfulCandidate = !genericTitle && candidate.length >= 4 && !/https?:\/\//i.test(candidate);
+  const compactCandidate = candidate.length <= 76 ? candidate : `${candidate.slice(0, 73).replace(/[,;:\s]+\S*$/, "").trim()}…`;
+  const title = (hadListMarker ? listItemTitle(rawContent) : undefined) ?? (meaningfulCandidate
+    ? compactCandidate.replace(/[.:]+$/, "")
     : documentSourceTitle(evidence.documentTitle, `${storedTitle} ${rawContent}`));
   const fullText = normalizeText(withoutRepeatedHeading(rawContent, number, storedTitle)) || normalizeText(rawContent);
   const previewLimit = 420;

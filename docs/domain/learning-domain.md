@@ -20,7 +20,7 @@ Este dominio define qué significa "aprender" dentro de la plataforma y cómo se
 
 `QuestionAttempt` conserva la dificultad y un snapshot de las evidencias jurídicas utilizadas en la evaluación. Estos snapshots son valores inmutables del intento, no nuevas entidades, y permiten auditar resultados históricos.
 
-`Question` tiene un ciclo editorial (`draft`, `published`, `archived`). Solo puede utilizarse en sesiones si está publicada y **todas** sus evidencias conducen a una unidad aprobada, publicada, vigente, con fuente oficial, fecha de vigencia y documento publicado. La publicación registra responsable y fecha de revisión.
+`Question` y `Case` tienen un ciclo editorial (`draft`, `published`, `archived`). Solo pueden utilizarse en sesiones si están publicados y **todas** sus evidencias conducen a una unidad aprobada, publicada, vigente, con fuente oficial, fecha de vigencia y documento publicado. La publicación registra responsable y fecha de revisión. `Case.kind` distingue el ejemplo trabajado (`worked_example`) del ejercicio de aplicación (`application`).
 
 `CaseAttempt` registra una respuesta abierta para autoevaluación guiada. El sistema muestra después la referencia editorial y sus evidencias, pero no presenta el resultado como una calificación automática de razonamiento jurídico.
 

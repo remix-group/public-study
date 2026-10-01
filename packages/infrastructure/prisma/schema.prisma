@@ -349,9 +349,13 @@ model QuestionEvidence {
 model Case {
   id               String   @id @default(cuid())
   objectiveId      String
+  kind             String   @default("application") // worked_example | application
   difficulty       Float // 0.0 – 1.0
   scenario         String
   expectedAnalysis String
+  editorialStatus  String   @default("draft") // draft | published | archived
+  reviewedBy       String?
+  reviewedAt       DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -359,6 +363,7 @@ model Case {
   evidences CaseEvidence[]
   attempts  CaseAttempt[]
 
+  @@index([editorialStatus])
   @@map("cases")
 }
 

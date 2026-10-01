@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { createGunzip } from "node:zlib";
 import { curriculum236828, routeMarkdown } from "./curriculum-236828.js";
 import { curatedTopics12To24 } from "./curated-topic-content.js";
+import { foundationTopics } from "./foundation-topic-content.js";
+import { approveProvisionForStudy, seedVerifiedOfficialSources } from "./official-study-sources.js";
 
 type Row = Record<string, string | null>;
 
@@ -299,6 +301,7 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
   await createManyInChunks(supplemental, (data) => prisma.legalProvision.createMany({ data, skipDuplicates: true }), 100);
   await createManyInChunks(supplemental.map((item) => ({ id: `evidence-${item.id}`, provisionId: item.id, content: item.content, citation: item.citation })), (data) => prisma.evidence.createMany({ data, skipDuplicates: true }), 100);
 
+  await seedVerifiedOfficialSources(prisma);
   await seedCurriculum(prisma, documentRows);
   console.log({ importedDocuments: documentRows.length, importedUnits: provisionRows.length, importedEvidences: importedEvidences.length, studyGuides: guideRows.length, visualExtractions: visualRows.length, sourceHash: SOURCE_HASH });
 }
@@ -446,19 +449,21 @@ async function seedCurriculum(prisma: PrismaClient, documentRows: Row[]) {
       explanation: "El artículo 804 permite a la Administración reimputar el pago en el orden legal sin que se requiera acto administrativo previo.",
     },
   ];
-  for (const item of topic11Questions) {
+  for (const [questionIndex, item] of topic11Questions.entries()) {
     const provision = statuteProvisions.get(item.provisionNumber);
     if (!provision) throw new Error(`Missing statute provision for topic 11: ${item.provisionNumber}`);
+    await approveProvisionForStudy(prisma, provision.id);
     const evidence = await prisma.evidence.upsert({
       where: { id: `evidence-topic-11-${item.provisionNumber.replaceAll(" ", "-").toLowerCase()}` },
       update: { provisionId: provision.id, content: provision.content, citation: provision.citation },
       create: { id: `evidence-topic-11-${item.provisionNumber.replaceAll(" ", "-").toLowerCase()}`, provisionId: provision.id, content: provision.content, citation: provision.citation },
     });
     await prisma.conceptEvidence.upsert({ where: { conceptId_evidenceId: { conceptId: "concept-route-11", evidenceId: evidence.id } }, update: {}, create: { conceptId: "concept-route-11", evidenceId: evidence.id } });
+    const balanced = balanceQuestionOptions(item.options, item.correctAnswer, questionIndex);
     const question = await prisma.question.upsert({
       where: { id: item.id },
-      update: { objectiveId: "objective-route-11", difficulty: item.difficulty, stem: item.stem, options: item.options, correctAnswer: item.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "student-demo", reviewedAt: new Date() },
-      create: { id: item.id, objectiveId: "objective-route-11", type: "multiple_choice", difficulty: item.difficulty, stem: item.stem, options: item.options, correctAnswer: item.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "student-demo", reviewedAt: new Date() },
+      update: { objectiveId: "objective-route-11", difficulty: item.difficulty, stem: item.stem, options: balanced.options, correctAnswer: balanced.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
+      create: { id: item.id, objectiveId: "objective-route-11", type: "multiple_choice", difficulty: item.difficulty, stem: item.stem, options: balanced.options, correctAnswer: balanced.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
     });
     await prisma.questionEvidence.upsert({ where: { questionId_evidenceId: { questionId: question.id, evidenceId: evidence.id } }, update: {}, create: { questionId: question.id, evidenceId: evidence.id } });
   }
@@ -478,10 +483,11 @@ async function seedCurriculum(prisma: PrismaClient, documentRows: Row[]) {
     },
   ];
   for (const item of topic11Cases) {
+    const kind = item.id.endsWith("worked-example") ? "worked_example" : "application";
     const studyCase = await prisma.case.upsert({
       where: { id: item.id },
-      update: { objectiveId: "objective-route-11", difficulty: item.difficulty, scenario: item.scenario, expectedAnalysis: item.expectedAnalysis },
-      create: { id: item.id, objectiveId: "objective-route-11", difficulty: item.difficulty, scenario: item.scenario, expectedAnalysis: item.expectedAnalysis },
+      update: { objectiveId: "objective-route-11", kind, difficulty: item.difficulty, scenario: item.scenario, expectedAnalysis: item.expectedAnalysis, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
+      create: { id: item.id, objectiveId: "objective-route-11", kind, difficulty: item.difficulty, scenario: item.scenario, expectedAnalysis: item.expectedAnalysis, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
     });
     for (const provisionNumber of item.provisionNumbers) {
       const evidence = await prisma.evidence.findUnique({ where: { id: `evidence-topic-11-${provisionNumber.replaceAll(" ", "-").toLowerCase()}` } });
@@ -490,20 +496,102 @@ async function seedCurriculum(prisma: PrismaClient, documentRows: Row[]) {
     }
   }
 
-  await seedCuratedTopics12To24(prisma);
+  const topic11ApplicationConcept = await prisma.concept.upsert({
+    where: { id: "concept-route-11-application" },
+    update: { objectiveId: "objective-route-11", name: "Aplicación e imputación del pago", description: topic11Cases[1].expectedAnalysis },
+    create: { id: "concept-route-11-application", objectiveId: "objective-route-11", name: "Aplicación e imputación del pago", description: topic11Cases[1].expectedAnalysis },
+  });
+  await prisma.conceptEvidence.deleteMany({ where: { conceptId: topic11ApplicationConcept.id } });
+  await prisma.conceptEvidence.createMany({
+    data: ["ARTÍCULO 800", "ARTÍCULO 803", "ARTÍCULO 804"].map((provisionNumber) => ({
+      conceptId: topic11ApplicationConcept.id,
+      evidenceId: `evidence-topic-11-${provisionNumber.replaceAll(" ", "-").toLowerCase()}`,
+    })),
+    skipDuplicates: true,
+  });
+  const topic11ProcedureConcept = await prisma.concept.upsert({
+    where: { id: "concept-route-11-procedure" },
+    update: { objectiveId: "objective-route-11", name: "Procedimiento y ejemplo aplicado", description: topic11Cases[0].expectedAnalysis },
+    create: { id: "concept-route-11-procedure", objectiveId: "objective-route-11", name: "Procedimiento y ejemplo aplicado", description: topic11Cases[0].expectedAnalysis },
+  });
+  await prisma.conceptEvidence.deleteMany({ where: { conceptId: topic11ProcedureConcept.id } });
+  await prisma.conceptEvidence.createMany({
+    data: ["ARTÍCULO 800", "ARTÍCULO 803", "ARTÍCULO 804"].map((provisionNumber) => ({
+      conceptId: topic11ProcedureConcept.id,
+      evidenceId: `evidence-topic-11-${provisionNumber.replaceAll(" ", "-").toLowerCase()}`,
+    })),
+    skipDuplicates: true,
+  });
+
+  await seedCuratedTopics(prisma);
 
   await prisma.learningObjective.updateMany({ where: { id: { in: ["objective-alcance-art-823", "objective-mandamiento-pago", "objective-titulos-ejecutivos"] } }, data: { topicId: "topic-route-13" } });
   await prisma.learningObjective.updateMany({ where: { id: "objective-medidas-preventivas" }, data: { topicId: "topic-route-14" } });
   await prisma.topicProgress.upsert({ where: { studentId_topicId: { studentId: "student-demo", topicId: "topic-route-01" } }, update: { state: "AVAILABLE", unlockedAt: new Date() }, create: { studentId: "student-demo", topicId: "topic-route-01", state: "AVAILABLE", unlockedAt: new Date() } });
+  await validateCurriculumCompleteness(prisma);
 }
 
-async function seedCuratedTopics12To24(prisma: PrismaClient) {
+function balanceQuestionOptions(options: Array<{ key: string; text: string }>, correctAnswer: string, offset: number) {
+  const keys = ["A", "B", "C", "D"];
+  const correct = options.find((option) => option.key === correctAnswer);
+  if (!correct || options.length !== 4) throw new Error("A multiple-choice question must have four options and a valid answer");
+  const distractors = options.filter((option) => option.key !== correctAnswer);
+  const target = ((offset % keys.length) + keys.length) % keys.length;
+  const arranged = [...distractors];
+  arranged.splice(target, 0, correct);
+  return {
+    options: arranged.map((option, index) => ({ key: keys[index], text: option.text })),
+    correctAnswer: keys[target],
+  };
+}
+
+function reinforcementQuestions(topic: (typeof foundationTopics)[number]) {
+  const genericDistractors = [
+    "Omitir la fuente y decidir únicamente por intuición.",
+    "Aplicar una regla distinta sin justificar el cambio.",
+    "Cerrar la actuación sin conservar soporte ni trazabilidad.",
+  ];
+  return [
+    {
+      stem: `${topic.workedExample.scenario} ¿Cuál es el análisis más adecuado?`,
+      options: [{ key: "A", text: topic.workedExample.analysis }, ...genericDistractors.map((text, index) => ({ key: ["B", "C", "D"][index], text }))],
+      correctAnswer: "A", explanation: topic.workedExample.analysis, errorType: "APPLIED_REASONING",
+    },
+    {
+      stem: `${topic.applicationCase.scenario} Selecciona la actuación mejor sustentada.`,
+      options: [{ key: "A", text: topic.applicationCase.analysis }, ...genericDistractors.map((text, index) => ({ key: ["B", "C", "D"][index], text }))],
+      correctAnswer: "A", explanation: topic.applicationCase.analysis, errorType: "SITUATIONAL_JUDGMENT",
+    },
+    {
+      stem: "¿Qué método permite resolver una pregunta de este tema con trazabilidad?",
+      options: [
+        { key: "A", text: "Identificar los hechos relevantes, aplicar la regla vigente y citar la fuente oficial" },
+        { key: "B", text: "Elegir la respuesta más extensa sin revisar su fundamento" },
+        { key: "C", text: "Usar un documento sin verificar su vigencia" },
+        { key: "D", text: "Descartar las condiciones y excepciones" },
+      ],
+      correctAnswer: "A", explanation: "La respuesta jurídica o institucional debe poder reconstruirse desde los hechos hasta una fuente oficial vigente y una conclusión motivada.", errorType: "SOURCE_AWARENESS",
+    },
+    {
+      stem: `¿Cuál afirmación resume correctamente el alcance de ${topic.order === 25 ? "las competencias comportamentales" : "este tema"}?`,
+      options: [
+        { key: "A", text: topic.studyText },
+        { key: "B", text: "El tema puede resolverse sin verificar condiciones, términos ni fuente." },
+        { key: "C", text: "Toda situación produce la misma consecuencia, sin importar los hechos." },
+        { key: "D", text: "Las reglas internas pueden reemplazar libremente la Constitución y la ley." },
+      ],
+      correctAnswer: "A", explanation: topic.studyText, errorType: "SYNTHESIS_ERROR",
+    },
+  ];
+}
+
+async function seedCuratedTopics(prisma: PrismaClient) {
   const documents = await prisma.legalDocument.findMany({ select: { id: true, title: true } });
-  for (const topic of curatedTopics12To24) {
+  const topics = [...foundationTopics, ...curatedTopics12To24].sort((left, right) => left.order - right.order);
+  for (const topic of topics) {
     const suffix = String(topic.order).padStart(2, "0");
     const objectiveId = `objective-route-${suffix}`;
     const conceptId = `concept-route-${suffix}`;
-    const manualEvidenceId = `evidence-material-manual-topic-${suffix}`;
     const selectedDocumentIds = documents
       .filter((document) => topic.sourceDocuments.some((pattern) => pattern.test(document.title)))
       .map((document) => document.id);
@@ -516,6 +604,7 @@ async function seedCuratedTopics12To24(prisma: PrismaClient) {
       const looksLikeContentsEntry = /^\d+(?:\.\d+){1,3}\.?\s+\D.+\s+\d{1,3}$/.test(compactContent)
         || /\b(?:conclusiones|glosario)\s+\d{1,3}\b/i.test(compactContent);
       return provision.unitType !== "visual_extraction"
+        && compactContent.length >= 80
         && !/bibliograf[ií]a|tabla de contenido|manual completo|tema 25|harvard business review|unesco|sanguinetti/i.test(label)
         && !/\.{4,}\s*\d+/.test(provision.content)
         && !looksLikeContentsEntry;
@@ -524,9 +613,14 @@ async function seedCuratedTopics12To24(prisma: PrismaClient) {
       ...usableProvisions.filter((provision) => topic.preferredNumbers?.some((pattern) => pattern.test(provision.number))),
       ...usableProvisions.filter((provision) => topic.preferredTitles?.some((pattern) => pattern.test(provision.title))),
       ...usableProvisions.filter((provision) => topic.sourceText.some((pattern) => pattern.test(`${provision.number} ${provision.title} ${provision.content}`))),
-    ].filter((provision, index, items) => items.findIndex((candidate) => candidate.id === provision.id) === index).slice(0, topic.maxSources ?? 2);
+    ].filter((provision, index, items) => items.findIndex((candidate) =>
+      candidate.number.trim().toLowerCase() === provision.number.trim().toLowerCase()
+      && candidate.title.trim().toLowerCase() === provision.title.trim().toLowerCase()
+      && candidate.content.trim() === provision.content.trim(),
+    ) === index).slice(0, topic.maxSources ?? 2);
     const sourceEvidenceIds: string[] = [];
     for (const [index, provision] of selectedProvisions.entries()) {
+      await approveProvisionForStudy(prisma, provision.id);
       const evidence = await prisma.evidence.upsert({
         where: { id: `evidence-topic-${suffix}-${index + 1}` },
         update: { provisionId: provision.id, content: provision.content, citation: provision.citation },
@@ -534,52 +628,85 @@ async function seedCuratedTopics12To24(prisma: PrismaClient) {
       });
       sourceEvidenceIds.push(evidence.id);
     }
-    if (!sourceEvidenceIds.length && topic.order === 19) {
-      const visualProvision = sourceProvisions.find((provision) => provision.unitType === "visual_extraction");
-      if (visualProvision) {
-        const visualPayload = JSON.parse(visualProvision.content) as { sections?: Array<{ headingVerbatim?: string | null }> };
-        const headings = (visualPayload.sections ?? []).map((section) => section.headingVerbatim?.trim()).filter((heading): heading is string => Boolean(heading));
-        const evidence = await prisma.evidence.upsert({
-          where: { id: "evidence-topic-19-1" },
-          update: { provisionId: visualProvision.id, content: `Secciones identificadas en la extracción: ${headings.join(", ")}. La extracción requiere validación editorial antes de considerarse fuente jurídica validada.`, citation: "Código Ética DIAN v3 (Prueba de Integridad), extracción visual" },
-          create: { id: "evidence-topic-19-1", provisionId: visualProvision.id, content: `Secciones identificadas en la extracción: ${headings.join(", ")}. La extracción requiere validación editorial antes de considerarse fuente jurídica validada.`, citation: "Código Ética DIAN v3 (Prueba de Integridad), extracción visual" },
-        });
-        sourceEvidenceIds.push(evidence.id);
-      }
-    }
     if (!sourceEvidenceIds.length) {
-      const fallback = await prisma.evidence.findUnique({ where: { id: manualEvidenceId } });
-      if (!fallback) throw new Error(`Missing manual evidence for topic ${topic.order}`);
-      sourceEvidenceIds.push(fallback.id);
+      throw new Error(`Topic ${topic.order} has no verified official source; manual fallback is not publishable`);
     }
 
     await prisma.concept.update({ where: { id: conceptId }, data: { description: topic.studyText } });
     await prisma.conceptEvidence.deleteMany({ where: { conceptId } });
     await prisma.conceptEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ conceptId, evidenceId })), skipDuplicates: true });
 
+    const applicationConceptId = `${conceptId}-application`;
+    await prisma.concept.upsert({
+      where: { id: applicationConceptId },
+      update: { objectiveId, name: "Aplicación y criterio de decisión", description: topic.applicationCase.analysis },
+      create: { id: applicationConceptId, objectiveId, name: "Aplicación y criterio de decisión", description: topic.applicationCase.analysis },
+    });
+    await prisma.conceptEvidence.deleteMany({ where: { conceptId: applicationConceptId } });
+    await prisma.conceptEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ conceptId: applicationConceptId, evidenceId })), skipDuplicates: true });
+
+    const procedureConceptId = `${conceptId}-procedure`;
+    await prisma.concept.upsert({
+      where: { id: procedureConceptId },
+      update: { objectiveId, name: "Procedimiento y ejemplo aplicado", description: topic.workedExample.analysis },
+      create: { id: procedureConceptId, objectiveId, name: "Procedimiento y ejemplo aplicado", description: topic.workedExample.analysis },
+    });
+    await prisma.conceptEvidence.deleteMany({ where: { conceptId: procedureConceptId } });
+    await prisma.conceptEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ conceptId: procedureConceptId, evidenceId })), skipDuplicates: true });
+
     const questionIds: string[] = [];
-    for (const [index, item] of topic.questions.entries()) {
+    const completeQuestions = [...topic.questions, ...reinforcementQuestions(topic)].slice(0, 6);
+    for (const [index, item] of completeQuestions.entries()) {
       const id = `question-route-${suffix}-curated-${index + 1}`;
       questionIds.push(id);
+      const balanced = balanceQuestionOptions(item.options, item.correctAnswer, topic.order + index);
       const question = await prisma.question.upsert({
         where: { id },
-        update: { objectiveId, difficulty: 0.4 + index * 0.2, stem: item.stem, options: item.options, correctAnswer: item.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "student-demo", reviewedAt: new Date() },
-        create: { id, objectiveId, type: "multiple_choice", difficulty: 0.4 + index * 0.2, stem: item.stem, options: item.options, correctAnswer: item.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "student-demo", reviewedAt: new Date() },
+        update: { objectiveId, difficulty: Math.min(0.85, 0.3 + index * 0.1), stem: item.stem, options: balanced.options, correctAnswer: balanced.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
+        create: { id, objectiveId, type: "multiple_choice", difficulty: Math.min(0.85, 0.3 + index * 0.1), stem: item.stem, options: balanced.options, correctAnswer: balanced.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
       });
       await prisma.questionEvidence.deleteMany({ where: { questionId: question.id } });
-      await prisma.questionEvidence.create({ data: { questionId: question.id, evidenceId: sourceEvidenceIds[index % sourceEvidenceIds.length] } });
+      await prisma.questionEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ questionId: question.id, evidenceId })), skipDuplicates: true });
     }
 
     const cases = [
-      { id: `case-route-${suffix}-worked-example`, difficulty: 0.45, scenario: topic.workedExample.scenario, expectedAnalysis: topic.workedExample.analysis },
-      { id: `case-route-${suffix}-situational`, difficulty: 0.7, scenario: topic.applicationCase.scenario, expectedAnalysis: topic.applicationCase.analysis },
+      { id: `case-route-${suffix}-worked-example`, kind: "worked_example", difficulty: 0.45, scenario: topic.workedExample.scenario, expectedAnalysis: topic.workedExample.analysis },
+      { id: `case-route-${suffix}-situational`, kind: "application", difficulty: 0.7, scenario: topic.applicationCase.scenario, expectedAnalysis: topic.applicationCase.analysis },
     ];
     for (const studyCase of cases) {
-      const savedCase = await prisma.case.upsert({ where: { id: studyCase.id }, update: { objectiveId, difficulty: studyCase.difficulty, scenario: studyCase.scenario, expectedAnalysis: studyCase.expectedAnalysis }, create: { ...studyCase, objectiveId } });
+      const savedCase = await prisma.case.upsert({ where: { id: studyCase.id }, update: { objectiveId, kind: studyCase.kind, difficulty: studyCase.difficulty, scenario: studyCase.scenario, expectedAnalysis: studyCase.expectedAnalysis, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() }, create: { ...studyCase, objectiveId, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() } });
       await prisma.caseEvidence.deleteMany({ where: { caseId: savedCase.id } });
       await prisma.caseEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ caseId: savedCase.id, evidenceId })), skipDuplicates: true });
     }
 
-    if (questionIds.length !== topic.questions.length) throw new Error(`Incomplete question set for topic ${topic.order}`);
+    if (questionIds.length !== 6) throw new Error(`Incomplete question set for topic ${topic.order}`);
+  }
+}
+
+async function validateCurriculumCompleteness(prisma: PrismaClient) {
+  const topics = await prisma.topic.findMany({
+    where: { id: { startsWith: "topic-route-" }, status: "active" },
+    orderBy: { order: "asc" },
+    include: {
+      learningObjectives: {
+        where: { status: "active" },
+        include: {
+          _count: { select: { concepts: true, questions: { where: { editorialStatus: "published" } }, cases: { where: { editorialStatus: "published" } } } },
+          questions: { where: { editorialStatus: "published" }, select: { id: true, evidences: { select: { evidenceId: true } } } },
+          cases: { where: { editorialStatus: "published" }, select: { id: true, evidences: { select: { evidenceId: true } } } },
+        },
+      },
+    },
+  });
+  if (topics.length !== 25) throw new Error(`Expected 25 active study topics, found ${topics.length}`);
+  for (const topic of topics) {
+    const primary = topic.learningObjectives.find((objective) => objective.id === `objective-route-${String(topic.order).padStart(2, "0")}`);
+    if (!primary) throw new Error(`Topic ${topic.order} lacks its primary learning objective`);
+    if (primary._count.concepts < 3 || primary._count.questions < 6 || primary._count.cases < 2) {
+      throw new Error(`Topic ${topic.order} is incomplete: ${primary._count.concepts} concepts, ${primary._count.questions} questions, ${primary._count.cases} cases`);
+    }
+    if (primary.questions.some((question) => !question.evidences.length) || primary.cases.some((studyCase) => !studyCase.evidences.length)) {
+      throw new Error(`Topic ${topic.order} has an activity without evidence`);
+    }
   }
 }
