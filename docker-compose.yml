@@ -3,11 +3,9 @@ services:
     image: postgres:17.11-alpine3.24
     restart: unless-stopped
     environment:
-      POSTGRES_USER: dian
-      POSTGRES_PASSWORD: dian
-      POSTGRES_DB: dian_study
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-dian}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD in .env before starting the platform}
+      POSTGRES_DB: ${POSTGRES_DB:-dian_study}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dian -d dian_study"]
       interval: 5s
@@ -25,7 +23,7 @@ services:
         NODE_IMAGE: node:24.20.0-bookworm-slim
         PNPM_VERSION: 11.23.0
     environment:
-      DATABASE_URL: postgresql://dian:dian@postgres:5432/dian_study?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dian}:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD in .env before starting the platform}@postgres:5432/${POSTGRES_DB:-dian_study}?schema=public
     command: ["sh", "-c", "pnpm --filter @dian-study/infrastructure db:migrate:deploy && pnpm --filter @dian-study/infrastructure db:seed"]
     depends_on:
       postgres:
@@ -42,10 +40,11 @@ services:
         PNPM_VERSION: 11.23.0
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://dian:dian@postgres:5432/dian_study?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dian}:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD in .env before starting the platform}@postgres:5432/${POSTGRES_DB:-dian_study}?schema=public
       PORT: 3000
       NODE_ENV: production
-      COOKIE_SECURE: "false"
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      OPEN_CURRICULUM: "true"
       AI_PROVIDER: ${AI_PROVIDER:-openai}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4}

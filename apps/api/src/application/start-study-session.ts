@@ -34,6 +34,10 @@ export async function startStudySession(input: StartStudySessionInput) {
     ]);
     if (!student) throw new StudySessionNotFoundError("Student not found");
     if (!competency || competency.status !== "active") throw new StudySessionNotFoundError("Active competency not found");
+    if (input.focusObjectiveId) {
+      const objectiveExists = competency.blocks.some((block) => block.topics.some((topic) => topic.learningObjectives.some(({ id }) => id === input.focusObjectiveId)));
+      if (!objectiveExists) throw new StudySessionNotFoundError("Active learning objective not found in this competency");
+    }
 
     const session = await tx.studySession.create({
       data: { studentId: input.studentId, competencyId: input.competencyId, mode: input.mode ?? "PRACTICE", focusObjectiveId: input.focusObjectiveId },

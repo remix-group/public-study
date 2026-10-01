@@ -20,7 +20,17 @@ Este dominio define qué significa "aprender" dentro de la plataforma y cómo se
 
 `QuestionAttempt` conserva la dificultad y un snapshot de las evidencias jurídicas utilizadas en la evaluación. Estos snapshots son valores inmutables del intento, no nuevas entidades, y permiten auditar resultados históricos.
 
-`Question` tiene un ciclo editorial (`draft`, `published`, `archived`). Solo el contenido publicado puede utilizarse en sesiones. La publicación registra responsable y fecha de revisión.
+`Question` y `Case` tienen un ciclo editorial (`draft`, `published`, `archived`). Solo pueden utilizarse en sesiones si están publicados y **todas** sus evidencias conducen a una unidad aprobada, publicada, vigente, con fuente oficial, fecha de vigencia y documento publicado. La publicación registra responsable y fecha de revisión. `Case.kind` distingue el ejemplo trabajado (`worked_example`) del ejercicio de aplicación (`application`).
+
+`CaseAttempt` registra una respuesta abierta para autoevaluación guiada. El sistema muestra después la referencia editorial y sus evidencias, pero no presenta el resultado como una calificación automática de razonamiento jurídico.
+
+`StudyPackage` es un modelo de lectura derivado por `LearningObjective`; no es una entidad persistente. Reúne orientación, recuperación inicial, lectura estructurada, fuentes, ejemplo, comprobaciones, práctica disponible, aplicación, cierre y próxima revisión desde las entidades existentes. Sus estados son:
+
+- `READY`: existe fuente revisada, actividad y práctica o aplicación disponible;
+- `PARTIAL`: existe material revisado para estudiar, pero falta algún componente práctico;
+- `IN_REVIEW`: el material vinculado todavía no puede presentarse como fuente jurídica validada.
+
+El paquete conserva capas explícitas de fuente literal, explicación pedagógica, actividad y evaluación. Una unidad pendiente puede consultarse con advertencia, pero no se convierte en evidencia jurídica publicada.
 
 ## Conceptos Core del Algoritmo (Atributos)
 - `mastery`: Nivel de dominio adquirido por el estudiante (ej. 0.0 a 1.0).

@@ -176,7 +176,7 @@ export async function getTopicKnowledgeGraph(topicId: string) {
         include: {
           concepts: { include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } } },
           questions: { where: { editorialStatus: "published" }, include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } } },
-          cases: { include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } } },
+          cases: { where: { editorialStatus: "published" }, include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } } },
         },
       },
     },

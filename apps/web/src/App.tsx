@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
-import { finishSession, getCurrentStudent, getDashboard, getNextQuestion, logout, startSession, submitAttempt } from "./api";
+import { finishSession, getCurrentStudent, getDashboard, getNextCase, getNextQuestion, logout, startSession, submitAttempt, submitCaseAttempt } from "./api";
 import { difficultyLabel, formatReviewDate, masteryPercent } from "./format";
-import type { AttemptResponse, AuthStudent, Dashboard, LearningObjective, Question, SessionStartResponse, SessionSummary } from "./types";
+import type { AttemptResponse, AuthStudent, CaseAttemptResponse, CaseExercise, Dashboard, LearningObjective, Question, SessionStartResponse, SessionSummary } from "./types";
 import { AuthScreen } from "./AuthScreen";
 import { EditorPanel } from "./EditorPanel";
 import { KnowledgePanel } from "./KnowledgePanel";
 import { GuidedStudy } from "./GuidedStudy";
 import { TopicKnowledgeMap } from "./TopicKnowledgeMap";
 import { StudyLibrary } from "./StudyLibrary";
+import { GuidedHome } from "./GuidedHome";
 import { InstitutionalMap } from "./InstitutionalMap";
 
-type Screen = "checking" | "auth" | "welcome" | "guide" | "map" | "institutional" | "library" | "loading" | "question" | "feedback" | "summary" | "editor" | "knowledge" | "empty";
+type Screen = "checking" | "auth" | "welcome" | "guide" | "map" | "institutional" | "library" | "loading" | "question" | "feedback" | "case" | "case-feedback" | "summary" | "editor" | "knowledge" | "empty";
 
 function Brand() {
   return (
@@ -40,15 +41,22 @@ export function App() {
   const [selected, setSelected] = useState("");
   const [confidence, setConfidence] = useState(0.5);
   const [feedback, setFeedback] = useState<AttemptResponse | null>(null);
+  const [caseExercise, setCaseExercise] = useState<CaseExercise | null>(null);
+  const [caseAnswer, setCaseAnswer] = useState("");
+  const [caseFeedback, setCaseFeedback] = useState<CaseAttemptResponse | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [startedAt, setStartedAt] = useState(0);
   const [questionNumber, setQuestionNumber] = useState(1);
+  const [sessionQuestionTarget, setSessionQuestionTarget] = useState(10);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [focusObjectiveId, setFocusObjectiveId] = useState<string | undefined>();
   const [guideObjectiveId, setGuideObjectiveId] = useState<string | undefined>();
   const [mapTopicId, setMapTopicId] = useState<string | undefined>();
+  const [expandedBlockId, setExpandedBlockId] = useState<string | undefined>();
+  const [expandedTopicId, setExpandedTopicId] = useState<string | undefined>();
+  const [librarySource, setLibrarySource] = useState<{ documentId: string; provisionId: string }>();
 
   function openGuide(objectiveId?: string) {
     if (!objectiveId) { begin(); return; }
@@ -59,9 +67,28 @@ export function App() {
     setMapTopicId(topicId); setScreen("map");
   }
 
+  function openSourceMaterial(documentId: string, provisionId: string) {
+    setLibrarySource({ documentId, provisionId }); setScreen("library");
+  }
+
+  function openLibrary() {
+    setLibrarySource(undefined); setScreen("library");
+  }
+
   useEffect(() => {
-    if (screen === "question") setStartedAt(Date.now());
+    if (screen === "question" || screen === "case") setStartedAt(Date.now());
   }, [screen, question?.id]);
+
+  useEffect(() => {
+    const recommendation = dashboard?.recommendedObjective;
+    if (!recommendation) return;
+    setExpandedBlockId(recommendation.blockId);
+    setExpandedTopicId(recommendation.topicId);
+  }, [dashboard?.recommendedObjective?.objectiveId]);
+
+  const caseAnswerLength = caseAnswer.trim().length;
+  const caseAnswerReady = caseAnswerLength >= 80;
+  const caseAnswerProgress = Math.min(100, Math.round((caseAnswerLength / 80) * 100));
 
   useEffect(() => {
     getCurrentStudent().then(({ student: current }) => {
@@ -81,6 +108,10 @@ export function App() {
     setScreen("loading"); setError("");
     try {
       setFocusObjectiveId(objectiveId);
+      const objectiveQuestionCount = objectiveId
+        ? dashboard?.objectives.find((item) => item.objectiveId === objectiveId)?.questionCount
+        : undefined;
+      setSessionQuestionTarget(Math.max(1, objectiveQuestionCount ?? 10));
       const data = await startSession(mode, objectiveId);
       setSessionData(data);
       const next = await getNextQuestion(data.session.id, objectiveId);
@@ -95,10 +126,30 @@ export function App() {
     }
   }
 
+  async function beginCase(objectiveId: string) {
+    setScreen("loading"); setError("");
+    try {
+      setFocusObjectiveId(objectiveId);
+      const data = await startSession("CASE", objectiveId);
+      setSessionData(data);
+      const next = await getNextCase(data.session.id, objectiveId);
+      if (!next) { setScreen("empty"); return; }
+      setObjective(next.objective); setCaseExercise(next.case); setCaseAnswer(""); setCaseFeedback(null); setScreen("case");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No pudimos preparar el caso situacional."); setScreen("welcome");
+    }
+  }
+
   async function continueSession() {
     if (!sessionData) return;
     setScreen("loading"); setError("");
     try {
+      if (questionNumber >= sessionQuestionTarget) {
+        const result = await finishSession(sessionData.session.id);
+        setSummary(result); setScreen("summary");
+        getDashboard().then(setDashboard).catch(() => undefined);
+        return;
+      }
       const next = await getNextQuestion(sessionData.session.id, focusObjectiveId);
       if (next) {
         setQuestion(next.question); setObjective(next.objective); setSelected(""); setConfidence(0.5);
@@ -132,16 +183,33 @@ export function App() {
     } finally { setSubmitting(false); }
   }
 
+  async function answerCase() {
+    if (!caseExercise || !sessionData || caseAnswer.trim().length < 80) return;
+    setSubmitting(true); setError("");
+    try {
+      const result = await submitCaseAttempt({ sessionId: sessionData.session.id, caseId: caseExercise.id, response: caseAnswer, timeSpentMs: Math.max(1, Date.now() - startedAt) });
+      setCaseFeedback(result); setScreen("case-feedback");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No pudimos registrar tu análisis.");
+    } finally { setSubmitting(false); }
+  }
+
+  async function finishCase() {
+    if (!sessionData) return;
+    const result = await finishSession(sessionData.session.id); setSummary(result); setScreen("summary");
+    getDashboard().then(setDashboard).catch(() => undefined);
+  }
+
   function restart() {
     setSessionData(null); setObjective(null); setQuestion(null); setSelected("");
-    setFeedback(null); setSummary(null); setConfidence(0.5); setFocusObjectiveId(undefined); setScreen("welcome");
+    setFeedback(null); setCaseExercise(null); setCaseAnswer(""); setCaseFeedback(null); setSummary(null); setConfidence(0.5); setFocusObjectiveId(undefined); setSessionQuestionTarget(10); setScreen("welcome");
   }
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <Brand />
-        {student ? <div className="account-actions"><button className="editor-link" onClick={() => setScreen("institutional")}>Instituciones</button><button className="editor-link" onClick={() => setScreen("library")}>Biblioteca</button>{student.role === "editor" && <><button className="editor-link" onClick={() => setScreen("knowledge")}>Fuentes</button><button className="editor-link" onClick={() => setScreen("editor")}>Preguntas</button></>}<button className="account-button" onClick={signOut}><span>{student.name.slice(0, 1).toUpperCase()}</span><span>{student.name}<small>Cerrar sesión</small></span></button></div> : <div className="topbar-meta">
+        {student ? <div className="account-actions"><button className="editor-link" onClick={() => setScreen("institutional")}>Instituciones</button><button className="editor-link" onClick={openLibrary}>Biblioteca</button>{student.role === "editor" && <><button className="editor-link" onClick={() => setScreen("knowledge")}>Fuentes</button><button className="editor-link" onClick={() => setScreen("editor")}>Preguntas</button></>}<button className="account-button" onClick={signOut}><span>{student.name.slice(0, 1).toUpperCase()}</span><span>{student.name}<small>Cerrar sesión</small></span></button></div> : <div className="topbar-meta">
           <span className="status-dot" /> Contenido con respaldo normativo
         </div>}
       </header>
@@ -150,27 +218,61 @@ export function App() {
       {screen === "auth" && <AuthScreen onAuthenticated={authenticated}/>}
       {screen === "editor" && <EditorPanel onClose={() => setScreen("welcome")}/>}
       {screen === "knowledge" && <KnowledgePanel onClose={() => setScreen("welcome")}/>}
-      {screen === "library" && <StudyLibrary onClose={() => setScreen("welcome")}/>}
-      {screen === "institutional" && <InstitutionalMap onClose={() => setScreen("welcome")}/>}
-      {screen === "guide" && guideObjectiveId && <GuidedStudy objectiveId={guideObjectiveId} onBack={() => setScreen("welcome")} onPractice={() => begin(guideObjectiveId, "PRACTICE")}/>}
+      {screen === "library" && <StudyLibrary initialDocumentId={librarySource?.documentId} initialUnitId={librarySource?.provisionId} onClose={() => { setLibrarySource(undefined); setScreen("welcome"); }}/>} 
+      {screen === "institutional" && <InstitutionalMap onClose={() => setScreen("welcome")}/>} 
+      {screen === "guide" && guideObjectiveId && <GuidedStudy objectiveId={guideObjectiveId} onBack={() => setScreen("welcome")} onPractice={() => begin(guideObjectiveId, "PRACTICE")} onCase={() => beginCase(guideObjectiveId)} onOpenSource={openSourceMaterial}/>}
       {screen === "map" && mapTopicId && <TopicKnowledgeMap topicId={mapTopicId} onBack={() => setScreen("welcome")}/>}
 
-      {screen === "welcome" && (
-        <main className="student-home">
-          <section className="student-greeting"><div><div className="eyebrow">Tu preparación DIAN</div><h1>Hola, {student?.name.split(" ")[0]}.</h1><p>Tu ruta integral reúne los 25 temas definidos para la OPEC 236828.</p></div><div className="mastery-overview"><span>{masteryPercent(dashboard?.overallMastery ?? 0)}%</span><small>dominio global</small></div></section>
-          {error && <div className="alert" role="alert">{error}</div>}
-          <section className="learning-process"><div><span className="eyebrow">Así vas a aprender</span><h2>Un ciclo activo, no una lista de lecturas</h2><p>Primero recuperas lo que sabes; después contrastas, practicas, recibes diagnóstico y vuelves a recuperar el conocimiento cuando corresponda.</p></div><ol>{dashboard?.process.steps.map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol></section>
-          <section className="today-plan">
-            <div className="today-copy"><span className="today-badge"><Icon name="target"/> Siguiente acción recomendada</span><h2>{dashboard?.recommendedObjective?.objective ?? "Explora tu ruta integral"}</h2><p>{dashboard?.recommendedObjective?.description ?? "Consulta los documentos incorporados para comenzar tu preparación."}</p>{dashboard?.recommendedObjective?.reason && <div className="recommendation-reason">Por qué: {dashboard.recommendedObjective.reason}</div>}<div className="plan-meta"><span><Icon name="clock"/> 5–10 minutos</span><span><Icon name="shield"/> Fuentes trazables</span><span>{dashboard?.recommendedObjective?.questionCount ?? 0} preguntas revisadas</span></div><div className="mode-actions"><button className="button primary" onClick={() => openGuide(dashboard?.recommendedObjective?.objectiveId)}>Aprender <span>→</span></button><button className="button secondary" disabled={!dashboard?.recommendedObjective?.questionCount} onClick={() => begin(dashboard?.recommendedObjective?.objectiveId, dashboard?.recommendedObjective?.action === "REVIEW" ? "REVIEW" : "PRACTICE")}>{dashboard?.recommendedObjective?.action === "REVIEW" ? "Repasar" : dashboard?.recommendedObjective?.questionCount ? "Practicar" : "Práctica en preparación"}</button></div></div>
-            <div className="plan-score"><small>Dominio del objetivo</small><strong>{masteryPercent(dashboard?.recommendedObjective?.mastery ?? 0)}%</strong><div><span style={{ width: `${masteryPercent(dashboard?.recommendedObjective?.mastery ?? 0)}%` }}/></div><p>{dashboard?.pendingReviews.some((review) => review.due) ? "Tienes un repaso pendiente para hoy." : "La ruta se ajusta después de cada respuesta."}</p></div>
-          </section>
-          <section className="student-metrics"><article><small>Dominio acumulado</small><strong>{masteryPercent(dashboard?.overallMastery ?? 0)}%</strong></article><article><small>Objetivos practicados</small><strong>{dashboard?.objectives.filter((item) => item.totalAttempts > 0).length ?? 0}<span>/{dashboard?.objectives.length ?? 0}</span></strong></article><article><small>Repasos pendientes</small><strong>{dashboard?.pendingReviews.filter((item) => item.due).length ?? 0}</strong></article><article><small>Sesiones completadas</small><strong>{dashboard?.recentSessions.length ?? 0}</strong></article></section>
-          <section className="learning-path"><div className="section-heading"><div><span className="eyebrow">Ruta de aprendizaje</span><h2>Seis bloques, veinticinco temas</h2></div><button className="text-button" onClick={() => setScreen("library")}>Abrir biblioteca →</button></div><div className="route-board">{dashboard?.route.map((block) => <article key={block.id}><header><div><small>{block.profile} · {block.competency}</small><h3>{block.name}</h3><p>{block.description}</p></div><span>Umbral {Math.round(block.threshold * 100)}%</span></header><div className="route-topics">{block.topics.map((topic) => <article className={`route-topic ${topic.state.toLowerCase()}`} key={topic.id}><span className="route-index">{topic.state === "COMPLETED" || topic.state === "MASTERED" ? "✓" : topic.order}</span><div><small>{topic.state.replace("_", " ")}</small><strong>{topic.name}</strong><p>{topic.description}</p><div className="route-topic-actions"><button onClick={() => topic.objectives[0] && openGuide(topic.objectives[0].objectiveId)}>Estudiar tema →</button><button onClick={() => openMap(topic.id)}>Mapa jurídico →</button></div></div><b>{masteryPercent(topic.mastery)}%</b></article>)}</div></article>)}</div><div className="objective-grid">{dashboard?.objectives.map((item, index) => <article className={`student-objective ${!item.accessible ? "locked" : ""}`} key={item.objectiveId}><div className="objective-top"><span>{String(index + 1).padStart(2, "0")}</span><span className={item.curriculumState === "IN_PROGRESS" ? "objective-status active" : "objective-status"}>{item.curriculumState.replace("_", " ")}</span></div><small>{item.block} · {item.topic}</small><h3>{item.objective}</h3><p>{item.description}</p><div className="objective-progress"><div><span style={{ width: `${masteryPercent(item.mastery)}%` }}/></div><strong>{masteryPercent(item.mastery)}%</strong></div><footer><span>{item.questionCount} preguntas revisadas</span><button onClick={() => openGuide(item.objectiveId)}>Consultar material →</button></footer></article>)}</div></section>
-          <section className="student-trust"><Icon name="shield"/><div><strong>Estudias con respaldo normativo</strong><p>Cada explicación muestra el artículo exacto que sustenta la respuesta. Tu progreso se usa para escoger el siguiente repaso.</p></div></section>
-        </main>
-      )}
+      {screen === "welcome" && <><GuidedHome dashboard={dashboard} studentName={student?.name ?? "Estudiante"} expandedBlockId={expandedBlockId} expandedTopicId={expandedTopicId} onBlockChange={setExpandedBlockId} onTopicChange={setExpandedTopicId} onLibrary={openLibrary} onGuide={openGuide} onPractice={(objectiveId, mode) => begin(objectiveId, mode)} onMap={openMap}/>{error && <div className="home-alert alert" role="alert">{error}</div>}</>}
 
       {screen === "loading" && <main className="center-state"><div className="loader"/><h2>Preparando tu sesión</h2><p>Organizando objetivos y evidencia jurídica…</p></main>}
+
+      {(screen === "case" || screen === "case-feedback") && caseExercise && objective && (
+        <main className="study-layout">
+          <aside className="study-sidebar">
+            <button className="text-button" onClick={restart}>← Salir del caso</button>
+            <div className="session-label">Caso situacional</div>
+            <h2>{sessionData?.competency.name}</h2>
+            <div className="objective-card"><span>01</span><div><small>Objetivo de aprendizaje</small><strong>{objective.name}</strong></div></div>
+            <div className="sidebar-note"><Icon name="shield"/><span>La respuesta se registra para autoevaluación; no se califica automáticamente una interpretación jurídica abierta.</span></div>
+          </aside>
+          <section className="study-main">
+            {screen === "case" ? <div className="question-wrap case-question-wrap">
+              <div className="question-meta"><span>Análisis aplicado</span><span className="difficulty">{difficultyLabel(caseExercise.difficulty)}</span></div>
+              <h1>Examina la situación y sustenta tu respuesta</h1>
+              <section className="case-scenario" aria-labelledby="case-scenario-title">
+                <header><Icon name="target"/><div><small>Situación planteada</small><strong id="case-scenario-title">Identifica el problema antes de responder</strong></div></header>
+                <p>{caseExercise.scenario}</p>
+              </section>
+              <section className={`case-response-card ${caseAnswerReady ? "ready" : ""}`} aria-labelledby="case-response-title">
+                <header className="case-response-heading">
+                  <div><span>Tu respuesta</span><label id="case-response-title" htmlFor="case-response">Análisis jurídico sustentado</label></div>
+                  <strong>{caseAnswerReady ? "Extensión mínima alcanzada" : `${Math.max(0, 80 - caseAnswerLength)} caracteres por completar`}</strong>
+                </header>
+                <p className="case-response-help" id="case-response-help">Construye una respuesta clara y razonada. La estructura sugerida sirve como guía, pero puedes redactar con tus propias palabras.</p>
+                <div className="case-response-guide" aria-label="Estructura sugerida para la respuesta">
+                  <span><b>1</b> Hechos relevantes</span><span><b>2</b> Norma aplicable</span><span><b>3</b> Análisis</span><span><b>4</b> Conclusión</span>
+                </div>
+                <textarea id="case-response" rows={12} value={caseAnswer} onChange={(event) => setCaseAnswer(event.target.value)} aria-describedby="case-response-help case-response-count" placeholder="Ejemplo de inicio: En esta situación, los hechos relevantes son… La norma aplicable establece… Por lo tanto…" spellCheck="true"/>
+                <footer className="case-response-footer">
+                  <div className="case-character-progress" aria-hidden="true"><span style={{ width: `${caseAnswerProgress}%` }}/></div>
+                  <small id="case-response-count"><b>{caseAnswerLength}</b> caracteres · mínimo 80</small>
+                </footer>
+              </section>
+              {error && <div className="alert" role="alert">{error}</div>}
+              <button className="button primary wide case-submit" disabled={!caseAnswerReady || submitting} onClick={answerCase}>{submitting ? "Registrando…" : "Registrar y contrastar análisis"}</button>
+            </div> : caseFeedback && <div className="feedback-wrap">
+              <div className="result-badge correct">Respuesta registrada</div>
+              <h1>Contrasta tu razonamiento.</h1>
+              <p className="explanation">Este ejercicio no usa una calificación automática. Compara tu análisis con la referencia editorial y las fuentes antes de cerrar.</p>
+              <div className="diagnosis-card"><small>Referencia editorial</small><strong>{caseFeedback.expectedAnalysis}</strong></div>
+              {caseFeedback.evidence.map((evidence) => <article className="evidence-card" key={evidence.evidenceId}><div className="evidence-heading"><Icon name="book"/><div><small>Fundamento jurídico</small><strong>{evidence.citation}</strong></div></div><blockquote>{evidence.content}</blockquote></article>)}
+              <div className="review-card"><Icon name="clock"/><div><small>Próxima revisión sugerida</small><strong>{formatReviewDate(caseFeedback.nextReviewDate)}</strong></div></div>
+              <button className="button primary wide" onClick={finishCase}>Finalizar caso <span aria-hidden="true">→</span></button>
+            </div>}
+          </section>
+        </main>
+      )}
 
       {(screen === "question" || screen === "feedback") && question && objective && (
         <main className="study-layout">
@@ -178,8 +280,8 @@ export function App() {
             <button className="text-button" onClick={restart}>← Salir de la sesión</button>
             <div className="session-label">Sesión actual</div>
             <h2>{sessionData?.competency.name}</h2>
-            <div className="progress-copy"><span>Pregunta {questionNumber} de 10</span><span>{questionNumber * 10}%</span></div>
-            <div className="progress-track"><span style={{ width: `${questionNumber * 10}%` }}/></div>
+            <div className="progress-copy"><span>Pregunta {questionNumber} de {sessionQuestionTarget}</span><span>{Math.min(100, Math.round((questionNumber / sessionQuestionTarget) * 100))}%</span></div>
+            <div className="progress-track"><span style={{ width: `${Math.min(100, (questionNumber / sessionQuestionTarget) * 100)}%` }}/></div>
             <div className="objective-card"><span>01</span><div><small>Objetivo de aprendizaje</small><strong>{objective.name}</strong></div></div>
             <div className="sidebar-note"><Icon name="shield"/><span>La evaluación usa evidencia jurídica almacenada y trazable.</span></div>
           </aside>
@@ -187,11 +289,19 @@ export function App() {
           <section className="study-main">
             {screen === "question" ? (
               <div className="question-wrap">
-                <div className="question-meta"><span>Pregunta {questionNumber} de 10</span><span className="difficulty">{difficultyLabel(question.difficulty)}</span></div>
+                <div className="question-meta"><span>Pregunta {questionNumber} de {sessionQuestionTarget}</span><span className="difficulty">{difficultyLabel(question.difficulty)}</span></div>
                 <h1>{question.stem}</h1>
                 <div className="options" role="radiogroup" aria-label="Opciones de respuesta">
                   {question.options?.map((option) => (
-                    <button key={option.key} role="radio" aria-checked={selected === option.key} className={`option ${selected === option.key ? "selected" : ""}`} onClick={() => setSelected(option.key)}>
+                    <button key={option.key} role="radio" aria-checked={selected === option.key} className={`option ${selected === option.key ? "selected" : ""}`} onClick={() => setSelected(option.key)} onKeyDown={(event) => {
+                      if (!question.options?.length || !["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(event.key)) return;
+                      event.preventDefault();
+                      const index = question.options.findIndex(({ key }) => key === option.key);
+                      const direction = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1;
+                      const nextIndex = (index + direction + question.options.length) % question.options.length;
+                      setSelected(question.options[nextIndex].key);
+                      event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role=radio]")[nextIndex]?.focus();
+                    }}>
                       <span>{option.key}</span><strong>{option.text}</strong>
                     </button>
                   ))}
@@ -223,7 +333,7 @@ export function App() {
                 ))}
                 <div className="review-card"><Icon name="clock"/><div><small>Próxima revisión sugerida</small><strong>{formatReviewDate(feedback.nextReviewDate)}</strong></div></div>
                 {error && <div className="alert" role="alert">{error}</div>}
-                <button className="button primary wide" onClick={continueSession}>Siguiente pregunta <span aria-hidden="true">→</span></button>
+                <button className="button primary wide" onClick={continueSession}>{questionNumber >= sessionQuestionTarget ? "Finalizar sesión" : "Siguiente pregunta"} <span aria-hidden="true">→</span></button>
               </div>
             )}
           </section>

@@ -4,7 +4,9 @@ import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { createGunzip } from "node:zlib";
 import { curriculum236828, routeMarkdown } from "./curriculum-236828.js";
-import { seedOpecFunctions } from "./opec-functions.js";
+import { curatedTopics12To24 } from "./curated-topic-content.js";
+import { foundationTopics } from "./foundation-topic-content.js";
+import { approveProvisionForStudy, seedVerifiedOfficialSources } from "./official-study-sources.js";
 
 type Row = Record<string, string | null>;
 
@@ -109,6 +111,14 @@ function anchor(value: string) {
   return normalized.slice(0, 100) || "unidad";
 }
 
+function extractionIssues(content: string) {
+  const issues: Array<{ code: string; label: string }> = [];
+  if (!content.trim()) issues.push({ code: "EMPTY_CONTENT", label: "La extracción no contiene texto." });
+  if (content.includes("�")) issues.push({ code: "REPLACEMENT_CHARACTER", label: "La extracción contiene caracteres de reemplazo." });
+  if (/\w-\n\w/.test(content)) issues.push({ code: "SPLIT_WORD", label: "La extracción puede contener palabras partidas por salto de línea." });
+  return issues;
+}
+
 function chunks<T>(items: T[], size = 500) {
   const result: T[][] = [];
   for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
@@ -126,6 +136,16 @@ function provisionDepth(row: Row, byId: Map<string, Row>, visiting = new Set<str
   const next = new Set(visiting);
   next.add(id);
   return 1 + provisionDepth(byId.get(parentId)!, byId, next);
+}
+
+function provisionPath(row: Row, byId: Map<string, Row>, visiting = new Set<string>()): string {
+  const id = required(row, "id");
+  const segment = `${String(Math.trunc(numberValue(row.unit_order))).padStart(10, "0")}-${id}`;
+  const parentId = row.parent_id;
+  if (!parentId || !byId.has(parentId) || visiting.has(id)) return segment;
+  const next = new Set(visiting);
+  next.add(id);
+  return `${provisionPath(byId.get(parentId)!, byId, next)}/${segment}`;
 }
 
 export async function seedImportedMaterial(prisma: PrismaClient) {
@@ -156,6 +176,7 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
       officialUrl: "",
       contentHash: currentVersion?.source_hash ?? source?.source_hash ?? null,
       originalFileKey: source?.storage_key ?? null,
+      originalFileName: source?.original_name ?? null,
       pipelineStatus: "REVIEW_REQUIRED",
       effectiveFrom: null,
       effectiveUntil: null,
@@ -172,9 +193,6 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
     effectiveUntil: null,
     status: "pending_review",
     sourceHash: row.source_hash,
-    sourceReferenceId: row.source_hash ? `source-${row.source_hash}` : null,
-    extractor: row.extractor,
-    extractorVersion: row.extractor_version,
     isCurrent: documents.get(required(row, "document_id"))?.current_version_id === row.id,
   }));
   await createManyInChunks(importedVersions, (data) => prisma.legalVersion.createMany({ data, skipDuplicates: true }));
@@ -194,6 +212,7 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
       parentProvisionId: row.parent_id && units.has(row.parent_id) ? row.parent_id : null,
       unitType: required(row, "unit_type").toLowerCase(),
       anchor: `${anchor(label || heading || required(row, "unit_type"))}-${required(row, "id").slice(0, 8)}`,
+      documentPath: provisionPath(row, units),
       order: Math.trunc(numberValue(row.unit_order)),
       validationStatus: "pending",
       editorialStatus: "draft",
@@ -204,13 +223,7 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
       effectiveFrom: null,
       effectiveUntil: null,
       status: "pending_review",
-      sourceReferenceId: evidence?.source_hash ? `source-${evidence.source_hash}` : null,
-      pageStart: pageStart ? numberValue(pageStart) : null,
-      pageEnd: pageEnd ? numberValue(pageEnd) : null,
-      charStart: evidence?.char_start ? numberValue(evidence.char_start) : null,
-      charEnd: evidence?.char_end ? numberValue(evidence.char_end) : null,
-      extractor: evidence?.extractor ?? null,
-      extractorVersion: evidence?.extractor_version ?? null,
+      extractionIssues: extractionIssues(row.official_text ?? ""),
     };
   });
   const rawById = new Map(unitRows.map((row) => [required(row, "id"), row]));
@@ -223,6 +236,16 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
   for (const depth of [...byDepth.keys()].sort((a, b) => a - b)) {
     await createManyInChunks(byDepth.get(depth)!, (data) => prisma.legalProvision.createMany({ data, skipDuplicates: true }), 350);
   }
+  const issueGroups = new Map<string, string[]>();
+  for (const provision of provisionRows) {
+    const key = JSON.stringify(provision.extractionIssues);
+    issueGroups.set(key, [...(issueGroups.get(key) ?? []), provision.id]);
+  }
+  for (const [serialized, ids] of issueGroups) {
+    for (const batch of chunks(ids, 500)) {
+      await prisma.legalProvision.updateMany({ where: { id: { in: batch } }, data: { extractionIssues: JSON.parse(serialized) } });
+    }
+  }
 
   const importedEvidences = evidenceRows.map((row) => {
     const unit = units.get(required(row, "legal_unit_id"));
@@ -234,13 +257,6 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
       provisionId: required(row, "legal_unit_id"),
       content: row.content ?? "",
       citation: `${document?.title?.trim() || "Documento importado"}${pageStart ? `, página${pageStart === pageEnd || !pageEnd ? "" : "s"} ${pageStart}${pageEnd && pageEnd !== pageStart ? `-${pageEnd}` : ""}` : ""}`,
-      sourceReferenceId: row.source_hash ? `source-${row.source_hash}` : null,
-      pageStart: pageStart ? numberValue(pageStart) : null,
-      pageEnd: pageEnd ? numberValue(pageEnd) : null,
-      charStart: row.char_start ? numberValue(row.char_start) : null,
-      charEnd: row.char_end ? numberValue(row.char_end) : null,
-      extractor: row.extractor,
-      extractorVersion: row.extractor_version,
     };
   });
   await createManyInChunks(importedEvidences, (data) => prisma.evidence.createMany({ data, skipDuplicates: true }), 350);
@@ -285,6 +301,7 @@ export async function seedImportedMaterial(prisma: PrismaClient) {
   await createManyInChunks(supplemental, (data) => prisma.legalProvision.createMany({ data, skipDuplicates: true }), 100);
   await createManyInChunks(supplemental.map((item) => ({ id: `evidence-${item.id}`, provisionId: item.id, content: item.content, citation: item.citation })), (data) => prisma.evidence.createMany({ data, skipDuplicates: true }), 100);
 
+  await seedVerifiedOfficialSources(prisma);
   await seedCurriculum(prisma, documentRows);
   console.log({ importedDocuments: documentRows.length, importedUnits: provisionRows.length, importedEvidences: importedEvidences.length, studyGuides: guideRows.length, visualExtractions: visualRows.length, sourceHash: SOURCE_HASH });
 }
@@ -294,10 +311,9 @@ async function seedCurriculum(prisma: PrismaClient, documentRows: Row[]) {
   const routeText = readFileSync(ROUTE_PATH, "utf8");
   const opec = await prisma.opec.upsert({
     where: { id: "opec-analista-i" },
-    update: { name: "Analista I — OPEC 236828", description: "Ruta integral de preparación para la OPEC 236828", level: "Técnico", area: "Cumplimiento de obligaciones tributarias", process: "Cumplimiento de obligaciones tributarias", subprocess: "Administración de cartera, Recaudo-Devoluciones", sourceHash: "96a579edd0af108a9db1b33833945f8e07c2cd13d55f108cc141751c048afd9b", sourceFileKey: "get-document.pdf", sourceVersion: "Ficha 01 — 15/04/2024" },
-    create: { id: "opec-analista-i", name: "Analista I — OPEC 236828", description: "Ruta integral de preparación para la OPEC 236828", level: "Técnico", area: "Cumplimiento de obligaciones tributarias", process: "Cumplimiento de obligaciones tributarias", subprocess: "Administración de cartera, Recaudo-Devoluciones", sourceHash: "96a579edd0af108a9db1b33833945f8e07c2cd13d55f108cc141751c048afd9b", sourceFileKey: "get-document.pdf", sourceVersion: "Ficha 01 — 15/04/2024" },
+    update: { name: "Analista I — OPEC 236828", description: "Ruta integral de preparación para la OPEC 236828", level: "Técnico", area: "Cumplimiento de obligaciones tributarias", process: "Cumplimiento de obligaciones tributarias", subprocess: "Administración de cartera, Recaudo-Devoluciones" },
+    create: { id: "opec-analista-i", name: "Analista I — OPEC 236828", description: "Ruta integral de preparación para la OPEC 236828", level: "Técnico", area: "Cumplimiento de obligaciones tributarias", process: "Cumplimiento de obligaciones tributarias", subprocess: "Administración de cartera, Recaudo-Devoluciones" },
   });
-  await seedOpecFunctions(prisma);
   const competency = await prisma.competency.upsert({
     where: { id: "competency-cobro-coactivo" },
     update: { opecId: opec.id, name: "Ruta integral OPEC 236828", description: "Competencias básicas, funcionales, comportamentales y de integridad organizadas en seis bloques" },
@@ -310,8 +326,8 @@ async function seedCurriculum(prisma: PrismaClient, documentRows: Row[]) {
 
   await prisma.legalDocument.upsert({
     where: { id: "material-manual-opec-236828" },
-    update: { contentHash: "49ac8b402f7b1741d79ca38790b9889329cbd61936357cf750781b02c2e6181b", pipelineStatus: "REVIEW_REQUIRED" },
-    create: { id: "material-manual-opec-236828", title: "Manual de estudio — OPEC 236828", source: "docs/product/sources/opec-236828-manual-estudio.pdf", authority: "Material aportado por el usuario", documentType: "study_manual", contentHash: "49ac8b402f7b1741d79ca38790b9889329cbd61936357cf750781b02c2e6181b", originalFileKey: "docs/product/sources/opec-236828-manual-estudio.pdf", pipelineStatus: "REVIEW_REQUIRED", effectiveFrom: null, status: "pending_review" },
+    update: { contentHash: "49ac8b402f7b1741d79ca38790b9889329cbd61936357cf750781b02c2e6181b", originalFileName: "DIAN - Técnico - Analista I - 236828.pdf", pipelineStatus: "REVIEW_REQUIRED" },
+    create: { id: "material-manual-opec-236828", title: "Manual de estudio — OPEC 236828", source: "docs/product/sources/opec-236828-manual-estudio.pdf", authority: "Material aportado por el usuario", documentType: "study_manual", contentHash: "49ac8b402f7b1741d79ca38790b9889329cbd61936357cf750781b02c2e6181b", originalFileKey: "docs/product/sources/opec-236828-manual-estudio.pdf", originalFileName: "DIAN - Técnico - Analista I - 236828.pdf", pipelineStatus: "REVIEW_REQUIRED", effectiveFrom: null, status: "pending_review" },
   });
   await prisma.legalVersion.upsert({
     where: { id: "material-manual-opec-236828-v1" }, update: { sourceHash: "49ac8b402f7b1741d79ca38790b9889329cbd61936357cf750781b02c2e6181b" },
@@ -319,8 +335,8 @@ async function seedCurriculum(prisma: PrismaClient, documentRows: Row[]) {
   });
   await prisma.legalDocument.upsert({
     where: { id: "material-route-opec-236828" },
-    update: { contentHash: "33099ed3832ca3febb9bd134d64c35d18417abc363534abde4b4819b11a40c2b", pipelineStatus: "REVIEW_REQUIRED" },
-    create: { id: "material-route-opec-236828", title: "Ruta de aprendizaje — OPEC 236828", source: "docs/product/sources/opec-236828-ruta-aprendizaje.pdf", authority: "Material aportado por el usuario", documentType: "learning_route", contentHash: "33099ed3832ca3febb9bd134d64c35d18417abc363534abde4b4819b11a40c2b", originalFileKey: "docs/product/sources/opec-236828-ruta-aprendizaje.pdf", pipelineStatus: "REVIEW_REQUIRED", effectiveFrom: null, status: "pending_review" },
+    update: { contentHash: "33099ed3832ca3febb9bd134d64c35d18417abc363534abde4b4819b11a40c2b", originalFileName: "Ruta - Hoja 1.pdf", pipelineStatus: "REVIEW_REQUIRED" },
+    create: { id: "material-route-opec-236828", title: "Ruta de aprendizaje — OPEC 236828", source: "docs/product/sources/opec-236828-ruta-aprendizaje.pdf", authority: "Material aportado por el usuario", documentType: "learning_route", contentHash: "33099ed3832ca3febb9bd134d64c35d18417abc363534abde4b4819b11a40c2b", originalFileKey: "docs/product/sources/opec-236828-ruta-aprendizaje.pdf", originalFileName: "Ruta - Hoja 1.pdf", pipelineStatus: "REVIEW_REQUIRED", effectiveFrom: null, status: "pending_review" },
   });
   await prisma.legalVersion.upsert({
     where: { id: "material-route-opec-236828-v1" }, update: { sourceHash: "33099ed3832ca3febb9bd134d64c35d18417abc363534abde4b4819b11a40c2b" },
@@ -358,7 +374,339 @@ async function seedCurriculum(prisma: PrismaClient, documentRows: Row[]) {
     }
   }
 
+  // Curated practice set for topic 11, grounded in the ET provisions already imported.
+  const statute = await prisma.legalDocument.findFirstOrThrow({ where: { title: { contains: "Decreto-Ley-624" } } });
+  const statuteProvisions = new Map(
+    (await prisma.legalProvision.findMany({
+      where: { documentId: statute.id, number: { in: ["ARTÍCULO 800", "ARTÍCULO 803", "ARTÍCULO 804"] } },
+    })).map((provision) => [provision.number, provision]),
+  );
+  const topic11Questions = [
+    {
+      id: "question-route-11-800-1", provisionNumber: "ARTÍCULO 800", difficulty: 0.35, errorType: "CONCEPT_CONFUSION",
+      stem: "Según el artículo 800 del Estatuto Tributario, ¿dónde deben efectuarse los pagos de impuestos, anticipos y retenciones?",
+      options: [
+        { key: "A", text: "En los lugares que señale el Gobierno Nacional" },
+        { key: "B", text: "Únicamente en la oficina de cada contribuyente" },
+        { key: "C", text: "Solo ante un juez administrativo" },
+        { key: "D", text: "En cualquier establecimiento comercial no autorizado" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 800 dispone que el pago debe efectuarse en los lugares que señale el Gobierno Nacional.",
+    },
+    {
+      id: "question-route-11-800-2", provisionNumber: "ARTÍCULO 800", difficulty: 0.45, errorType: "SOURCE_AWARENESS",
+      stem: "¿A través de qué entidades puede el Gobierno Nacional recaudar total o parcialmente los tributos administrados por la DIAN, según el artículo 800?",
+      options: [
+        { key: "A", text: "A través de bancos y demás entidades financieras" },
+        { key: "B", text: "Exclusivamente mediante empresas de mensajería" },
+        { key: "C", text: "Solo mediante notarías" },
+        { key: "D", text: "Únicamente mediante pagos en especie" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 800 autoriza el recaudo total o parcial a través de bancos y demás entidades financieras.",
+    },
+    {
+      id: "question-route-11-803-1", provisionNumber: "ARTÍCULO 803", difficulty: 0.4, errorType: "PROCEDURE_ORDER_ERROR",
+      stem: "¿Qué fecha se tiene como fecha de pago del impuesto para cada contribuyente, de acuerdo con el artículo 803?",
+      options: [
+        { key: "A", text: "La fecha en que los valores imputables ingresan a las oficinas de impuestos o a los bancos autorizados" },
+        { key: "B", text: "La fecha en que se imprime la declaración" },
+        { key: "C", text: "La fecha en que se inicia una fiscalización" },
+        { key: "D", text: "La fecha en que se solicita un certificado bancario" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 803 fija como fecha de pago aquella en que los valores imputables ingresan a las oficinas de impuestos o a los bancos autorizados.",
+    },
+    {
+      id: "question-route-11-803-2", provisionNumber: "ARTÍCULO 803", difficulty: 0.55, errorType: "CONCEPT_CONFUSION",
+      stem: "¿Cuál de los siguientes valores puede ser tenido en cuenta para establecer la fecha de pago conforme al artículo 803?",
+      options: [
+        { key: "A", text: "Un valor recibido inicialmente como simple depósito o buena cuenta" },
+        { key: "B", text: "Una promesa verbal de pago no registrada" },
+        { key: "C", text: "Una obligación privada sin relación tributaria" },
+        { key: "D", text: "Una factura aún no presentada a la Administración" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 803 incluye valores recibidos inicialmente como simples depósitos, buenas cuentas, retenciones o saldos a favor.",
+    },
+    {
+      id: "question-route-11-804-1", provisionNumber: "ARTÍCULO 804", difficulty: 0.6, errorType: "PROCEDURE_ORDER_ERROR",
+      stem: "En una deuda vencida, ¿cómo deben imputarse los pagos según el inciso primero del artículo 804?",
+      options: [
+        { key: "A", text: "Al período e impuesto indicados, en proporción a los componentes de la obligación total" },
+        { key: "B", text: "Siempre primero a intereses, sin considerar la obligación total" },
+        { key: "C", text: "Únicamente al impuesto más antiguo de cualquier período" },
+        { key: "D", text: "Al concepto que el banco elija libremente" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 804 ordena imputar el pago al período e impuesto indicado, en las mismas proporciones de sanciones actualizadas, intereses, anticipos, impuestos y retenciones dentro de la obligación total.",
+    },
+    {
+      id: "question-route-11-804-2", provisionNumber: "ARTÍCULO 804", difficulty: 0.7, errorType: "MISSED_EXCEPTION",
+      stem: "Si el contribuyente imputa el pago de una forma diferente a la prevista en el artículo 804, ¿qué procede?",
+      options: [
+        { key: "A", text: "La Administración lo reimputa en el orden señalado sin acto administrativo previo" },
+        { key: "B", text: "El pago se anula automáticamente" },
+        { key: "C", text: "El banco decide de forma definitiva la imputación" },
+        { key: "D", text: "Debe iniciarse un proceso judicial antes de corregirlo" },
+      ], correctAnswer: "A",
+      explanation: "El artículo 804 permite a la Administración reimputar el pago en el orden legal sin que se requiera acto administrativo previo.",
+    },
+  ];
+  for (const [questionIndex, item] of topic11Questions.entries()) {
+    const provision = statuteProvisions.get(item.provisionNumber);
+    if (!provision) throw new Error(`Missing statute provision for topic 11: ${item.provisionNumber}`);
+    await approveProvisionForStudy(prisma, provision.id);
+    const evidence = await prisma.evidence.upsert({
+      where: { id: `evidence-topic-11-${item.provisionNumber.replaceAll(" ", "-").toLowerCase()}` },
+      update: { provisionId: provision.id, content: provision.content, citation: provision.citation },
+      create: { id: `evidence-topic-11-${item.provisionNumber.replaceAll(" ", "-").toLowerCase()}`, provisionId: provision.id, content: provision.content, citation: provision.citation },
+    });
+    await prisma.conceptEvidence.upsert({ where: { conceptId_evidenceId: { conceptId: "concept-route-11", evidenceId: evidence.id } }, update: {}, create: { conceptId: "concept-route-11", evidenceId: evidence.id } });
+    const balanced = balanceQuestionOptions(item.options, item.correctAnswer, questionIndex);
+    const question = await prisma.question.upsert({
+      where: { id: item.id },
+      update: { objectiveId: "objective-route-11", difficulty: item.difficulty, stem: item.stem, options: balanced.options, correctAnswer: balanced.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
+      create: { id: item.id, objectiveId: "objective-route-11", type: "multiple_choice", difficulty: item.difficulty, stem: item.stem, options: balanced.options, correctAnswer: balanced.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
+    });
+    await prisma.questionEvidence.upsert({ where: { questionId_evidenceId: { questionId: question.id, evidenceId: evidence.id } }, update: {}, create: { questionId: question.id, evidenceId: evidence.id } });
+  }
+
+  const topic11Cases = [
+    {
+      id: "case-route-11-worked-example", difficulty: 0.45,
+      scenario: "Una obligación tributaria vencida aparece en la cuenta corriente de un contribuyente. El 14 de marzo, el contribuyente entrega el dinero en un banco autorizado y solicita que el pago se registre contra el período e impuesto que identifica en el comprobante. El valor fue recibido inicialmente como una buena cuenta y la obligación incluye impuesto, intereses y sanciones actualizadas.",
+      expectedAnalysis: "El análisis empieza por el artículo 800: el pago puede recaudarse a través de bancos y demás entidades financieras autorizadas. Luego, conforme al artículo 803, la fecha de pago es el 14 de marzo, cuando los valores imputables ingresaron al banco autorizado, aunque inicialmente se hayan recibido como buena cuenta. Finalmente, el artículo 804 exige imputar el pago al período e impuesto indicado, en las proporciones en que participan el impuesto, los intereses y las sanciones actualizadas dentro de la obligación total. La cuenta corriente debe reflejar ese movimiento con su fecha y distribución normativa.",
+      provisionNumbers: ["ARTÍCULO 800", "ARTÍCULO 803", "ARTÍCULO 804"],
+    },
+    {
+      id: "case-route-11-situational", difficulty: 0.7,
+      scenario: "Al revisar la cuenta corriente, una funcionaria observa que un pago de una deuda vencida fue registrado por el contribuyente únicamente contra los intereses, aunque el comprobante identifica el período y el impuesto. El contribuyente sostiene que la Administración no puede modificar la distribución porque el banco ya aplicó el dinero. ¿Qué debe decidir la funcionaria y cómo debe quedar reflejado el movimiento?",
+      expectedAnalysis: "Debe conservarse la fecha en que el pago ingresó al banco autorizado, de acuerdo con el artículo 803. La imputación debe corresponder al período e impuesto indicado y distribuirse en las proporciones previstas por el artículo 804 entre sanciones actualizadas, intereses, anticipos, impuestos y retenciones que integren la obligación total. Como la imputación realizada fue diferente, la Administración puede reimputar el pago en el orden legal sin acto administrativo previo. El registro de la cuenta corriente debe conservar la trazabilidad del pago, su fecha y la reimputación aplicada.",
+      provisionNumbers: ["ARTÍCULO 803", "ARTÍCULO 804"],
+    },
+  ];
+  for (const item of topic11Cases) {
+    const kind = item.id.endsWith("worked-example") ? "worked_example" : "application";
+    const studyCase = await prisma.case.upsert({
+      where: { id: item.id },
+      update: { objectiveId: "objective-route-11", kind, difficulty: item.difficulty, scenario: item.scenario, expectedAnalysis: item.expectedAnalysis, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
+      create: { id: item.id, objectiveId: "objective-route-11", kind, difficulty: item.difficulty, scenario: item.scenario, expectedAnalysis: item.expectedAnalysis, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
+    });
+    for (const provisionNumber of item.provisionNumbers) {
+      const evidence = await prisma.evidence.findUnique({ where: { id: `evidence-topic-11-${provisionNumber.replaceAll(" ", "-").toLowerCase()}` } });
+      if (!evidence) throw new Error(`Missing evidence for topic 11 case: ${provisionNumber}`);
+      await prisma.caseEvidence.upsert({ where: { caseId_evidenceId: { caseId: studyCase.id, evidenceId: evidence.id } }, update: {}, create: { caseId: studyCase.id, evidenceId: evidence.id } });
+    }
+  }
+
+  const topic11ApplicationConcept = await prisma.concept.upsert({
+    where: { id: "concept-route-11-application" },
+    update: { objectiveId: "objective-route-11", name: "Aplicación e imputación del pago", description: topic11Cases[1].expectedAnalysis },
+    create: { id: "concept-route-11-application", objectiveId: "objective-route-11", name: "Aplicación e imputación del pago", description: topic11Cases[1].expectedAnalysis },
+  });
+  await prisma.conceptEvidence.deleteMany({ where: { conceptId: topic11ApplicationConcept.id } });
+  await prisma.conceptEvidence.createMany({
+    data: ["ARTÍCULO 800", "ARTÍCULO 803", "ARTÍCULO 804"].map((provisionNumber) => ({
+      conceptId: topic11ApplicationConcept.id,
+      evidenceId: `evidence-topic-11-${provisionNumber.replaceAll(" ", "-").toLowerCase()}`,
+    })),
+    skipDuplicates: true,
+  });
+  const topic11ProcedureConcept = await prisma.concept.upsert({
+    where: { id: "concept-route-11-procedure" },
+    update: { objectiveId: "objective-route-11", name: "Procedimiento y ejemplo aplicado", description: topic11Cases[0].expectedAnalysis },
+    create: { id: "concept-route-11-procedure", objectiveId: "objective-route-11", name: "Procedimiento y ejemplo aplicado", description: topic11Cases[0].expectedAnalysis },
+  });
+  await prisma.conceptEvidence.deleteMany({ where: { conceptId: topic11ProcedureConcept.id } });
+  await prisma.conceptEvidence.createMany({
+    data: ["ARTÍCULO 800", "ARTÍCULO 803", "ARTÍCULO 804"].map((provisionNumber) => ({
+      conceptId: topic11ProcedureConcept.id,
+      evidenceId: `evidence-topic-11-${provisionNumber.replaceAll(" ", "-").toLowerCase()}`,
+    })),
+    skipDuplicates: true,
+  });
+
+  await seedCuratedTopics(prisma);
+
   await prisma.learningObjective.updateMany({ where: { id: { in: ["objective-alcance-art-823", "objective-mandamiento-pago", "objective-titulos-ejecutivos"] } }, data: { topicId: "topic-route-13" } });
   await prisma.learningObjective.updateMany({ where: { id: "objective-medidas-preventivas" }, data: { topicId: "topic-route-14" } });
   await prisma.topicProgress.upsert({ where: { studentId_topicId: { studentId: "student-demo", topicId: "topic-route-01" } }, update: { state: "AVAILABLE", unlockedAt: new Date() }, create: { studentId: "student-demo", topicId: "topic-route-01", state: "AVAILABLE", unlockedAt: new Date() } });
+  await validateCurriculumCompleteness(prisma);
+}
+
+function balanceQuestionOptions(options: Array<{ key: string; text: string }>, correctAnswer: string, offset: number) {
+  const keys = ["A", "B", "C", "D"];
+  const correct = options.find((option) => option.key === correctAnswer);
+  if (!correct || options.length !== 4) throw new Error("A multiple-choice question must have four options and a valid answer");
+  const distractors = options.filter((option) => option.key !== correctAnswer);
+  const target = ((offset % keys.length) + keys.length) % keys.length;
+  const arranged = [...distractors];
+  arranged.splice(target, 0, correct);
+  return {
+    options: arranged.map((option, index) => ({ key: keys[index], text: option.text })),
+    correctAnswer: keys[target],
+  };
+}
+
+function reinforcementQuestions(topic: (typeof foundationTopics)[number]) {
+  const genericDistractors = [
+    "Omitir la fuente y decidir únicamente por intuición.",
+    "Aplicar una regla distinta sin justificar el cambio.",
+    "Cerrar la actuación sin conservar soporte ni trazabilidad.",
+  ];
+  return [
+    {
+      stem: `${topic.workedExample.scenario} ¿Cuál es el análisis más adecuado?`,
+      options: [{ key: "A", text: topic.workedExample.analysis }, ...genericDistractors.map((text, index) => ({ key: ["B", "C", "D"][index], text }))],
+      correctAnswer: "A", explanation: topic.workedExample.analysis, errorType: "APPLIED_REASONING",
+    },
+    {
+      stem: `${topic.applicationCase.scenario} Selecciona la actuación mejor sustentada.`,
+      options: [{ key: "A", text: topic.applicationCase.analysis }, ...genericDistractors.map((text, index) => ({ key: ["B", "C", "D"][index], text }))],
+      correctAnswer: "A", explanation: topic.applicationCase.analysis, errorType: "SITUATIONAL_JUDGMENT",
+    },
+    {
+      stem: "¿Qué método permite resolver una pregunta de este tema con trazabilidad?",
+      options: [
+        { key: "A", text: "Identificar los hechos relevantes, aplicar la regla vigente y citar la fuente oficial" },
+        { key: "B", text: "Elegir la respuesta más extensa sin revisar su fundamento" },
+        { key: "C", text: "Usar un documento sin verificar su vigencia" },
+        { key: "D", text: "Descartar las condiciones y excepciones" },
+      ],
+      correctAnswer: "A", explanation: "La respuesta jurídica o institucional debe poder reconstruirse desde los hechos hasta una fuente oficial vigente y una conclusión motivada.", errorType: "SOURCE_AWARENESS",
+    },
+    {
+      stem: `¿Cuál afirmación resume correctamente el alcance de ${topic.order === 25 ? "las competencias comportamentales" : "este tema"}?`,
+      options: [
+        { key: "A", text: topic.studyText },
+        { key: "B", text: "El tema puede resolverse sin verificar condiciones, términos ni fuente." },
+        { key: "C", text: "Toda situación produce la misma consecuencia, sin importar los hechos." },
+        { key: "D", text: "Las reglas internas pueden reemplazar libremente la Constitución y la ley." },
+      ],
+      correctAnswer: "A", explanation: topic.studyText, errorType: "SYNTHESIS_ERROR",
+    },
+  ];
+}
+
+async function seedCuratedTopics(prisma: PrismaClient) {
+  const documents = await prisma.legalDocument.findMany({ select: { id: true, title: true } });
+  const topics = [...foundationTopics, ...curatedTopics12To24].sort((left, right) => left.order - right.order);
+  for (const topic of topics) {
+    const suffix = String(topic.order).padStart(2, "0");
+    const objectiveId = `objective-route-${suffix}`;
+    const conceptId = `concept-route-${suffix}`;
+    const selectedDocumentIds = documents
+      .filter((document) => topic.sourceDocuments.some((pattern) => pattern.test(document.title)))
+      .map((document) => document.id);
+    const sourceProvisions = selectedDocumentIds.length
+      ? await prisma.legalProvision.findMany({ where: { documentId: { in: selectedDocumentIds } }, orderBy: [{ order: "asc" }, { createdAt: "asc" }] })
+      : [];
+    const usableProvisions = sourceProvisions.filter((provision) => {
+      const label = `${provision.number} ${provision.title} ${provision.content}`;
+      const compactContent = provision.content.trim().replace(/\s+/g, " ");
+      const looksLikeContentsEntry = /^\d+(?:\.\d+){1,3}\.?\s+\D.+\s+\d{1,3}$/.test(compactContent)
+        || /\b(?:conclusiones|glosario)\s+\d{1,3}\b/i.test(compactContent);
+      return provision.unitType !== "visual_extraction"
+        && compactContent.length >= 80
+        && !/bibliograf[ií]a|tabla de contenido|manual completo|tema 25|harvard business review|unesco|sanguinetti/i.test(label)
+        && !/\.{4,}\s*\d+/.test(provision.content)
+        && !looksLikeContentsEntry;
+    });
+    const selectedProvisions = [
+      ...usableProvisions.filter((provision) => topic.preferredNumbers?.some((pattern) => pattern.test(provision.number))),
+      ...usableProvisions.filter((provision) => topic.preferredTitles?.some((pattern) => pattern.test(provision.title))),
+      ...usableProvisions.filter((provision) => topic.sourceText.some((pattern) => pattern.test(`${provision.number} ${provision.title} ${provision.content}`))),
+    ].filter((provision, index, items) => items.findIndex((candidate) =>
+      candidate.number.trim().toLowerCase() === provision.number.trim().toLowerCase()
+      && candidate.title.trim().toLowerCase() === provision.title.trim().toLowerCase()
+      && candidate.content.trim() === provision.content.trim(),
+    ) === index).slice(0, topic.maxSources ?? 2);
+    const sourceEvidenceIds: string[] = [];
+    for (const [index, provision] of selectedProvisions.entries()) {
+      await approveProvisionForStudy(prisma, provision.id);
+      const evidence = await prisma.evidence.upsert({
+        where: { id: `evidence-topic-${suffix}-${index + 1}` },
+        update: { provisionId: provision.id, content: provision.content, citation: provision.citation },
+        create: { id: `evidence-topic-${suffix}-${index + 1}`, provisionId: provision.id, content: provision.content, citation: provision.citation },
+      });
+      sourceEvidenceIds.push(evidence.id);
+    }
+    if (!sourceEvidenceIds.length) {
+      throw new Error(`Topic ${topic.order} has no verified official source; manual fallback is not publishable`);
+    }
+
+    await prisma.concept.update({ where: { id: conceptId }, data: { description: topic.studyText } });
+    await prisma.conceptEvidence.deleteMany({ where: { conceptId } });
+    await prisma.conceptEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ conceptId, evidenceId })), skipDuplicates: true });
+
+    const applicationConceptId = `${conceptId}-application`;
+    await prisma.concept.upsert({
+      where: { id: applicationConceptId },
+      update: { objectiveId, name: "Aplicación y criterio de decisión", description: topic.applicationCase.analysis },
+      create: { id: applicationConceptId, objectiveId, name: "Aplicación y criterio de decisión", description: topic.applicationCase.analysis },
+    });
+    await prisma.conceptEvidence.deleteMany({ where: { conceptId: applicationConceptId } });
+    await prisma.conceptEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ conceptId: applicationConceptId, evidenceId })), skipDuplicates: true });
+
+    const procedureConceptId = `${conceptId}-procedure`;
+    await prisma.concept.upsert({
+      where: { id: procedureConceptId },
+      update: { objectiveId, name: "Procedimiento y ejemplo aplicado", description: topic.workedExample.analysis },
+      create: { id: procedureConceptId, objectiveId, name: "Procedimiento y ejemplo aplicado", description: topic.workedExample.analysis },
+    });
+    await prisma.conceptEvidence.deleteMany({ where: { conceptId: procedureConceptId } });
+    await prisma.conceptEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ conceptId: procedureConceptId, evidenceId })), skipDuplicates: true });
+
+    const questionIds: string[] = [];
+    const completeQuestions = [...topic.questions, ...reinforcementQuestions(topic)].slice(0, 6);
+    for (const [index, item] of completeQuestions.entries()) {
+      const id = `question-route-${suffix}-curated-${index + 1}`;
+      questionIds.push(id);
+      const balanced = balanceQuestionOptions(item.options, item.correctAnswer, topic.order + index);
+      const question = await prisma.question.upsert({
+        where: { id },
+        update: { objectiveId, difficulty: Math.min(0.85, 0.3 + index * 0.1), stem: item.stem, options: balanced.options, correctAnswer: balanced.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
+        create: { id, objectiveId, type: "multiple_choice", difficulty: Math.min(0.85, 0.3 + index * 0.1), stem: item.stem, options: balanced.options, correctAnswer: balanced.correctAnswer, explanation: item.explanation, errorType: item.errorType, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() },
+      });
+      await prisma.questionEvidence.deleteMany({ where: { questionId: question.id } });
+      await prisma.questionEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ questionId: question.id, evidenceId })), skipDuplicates: true });
+    }
+
+    const cases = [
+      { id: `case-route-${suffix}-worked-example`, kind: "worked_example", difficulty: 0.45, scenario: topic.workedExample.scenario, expectedAnalysis: topic.workedExample.analysis },
+      { id: `case-route-${suffix}-situational`, kind: "application", difficulty: 0.7, scenario: topic.applicationCase.scenario, expectedAnalysis: topic.applicationCase.analysis },
+    ];
+    for (const studyCase of cases) {
+      const savedCase = await prisma.case.upsert({ where: { id: studyCase.id }, update: { objectiveId, kind: studyCase.kind, difficulty: studyCase.difficulty, scenario: studyCase.scenario, expectedAnalysis: studyCase.expectedAnalysis, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() }, create: { ...studyCase, objectiveId, editorialStatus: "published", reviewedBy: "official-source-curation-2026-09-30", reviewedAt: new Date() } });
+      await prisma.caseEvidence.deleteMany({ where: { caseId: savedCase.id } });
+      await prisma.caseEvidence.createMany({ data: sourceEvidenceIds.map((evidenceId) => ({ caseId: savedCase.id, evidenceId })), skipDuplicates: true });
+    }
+
+    if (questionIds.length !== 6) throw new Error(`Incomplete question set for topic ${topic.order}`);
+  }
+}
+
+async function validateCurriculumCompleteness(prisma: PrismaClient) {
+  const topics = await prisma.topic.findMany({
+    where: { id: { startsWith: "topic-route-" }, status: "active" },
+    orderBy: { order: "asc" },
+    include: {
+      learningObjectives: {
+        where: { status: "active" },
+        include: {
+          _count: { select: { concepts: true, questions: { where: { editorialStatus: "published" } }, cases: { where: { editorialStatus: "published" } } } },
+          questions: { where: { editorialStatus: "published" }, select: { id: true, evidences: { select: { evidenceId: true } } } },
+          cases: { where: { editorialStatus: "published" }, select: { id: true, evidences: { select: { evidenceId: true } } } },
+        },
+      },
+    },
+  });
+  if (topics.length !== 25) throw new Error(`Expected 25 active study topics, found ${topics.length}`);
+  for (const topic of topics) {
+    const primary = topic.learningObjectives.find((objective) => objective.id === `objective-route-${String(topic.order).padStart(2, "0")}`);
+    if (!primary) throw new Error(`Topic ${topic.order} lacks its primary learning objective`);
+    if (primary._count.concepts < 3 || primary._count.questions < 6 || primary._count.cases < 2) {
+      throw new Error(`Topic ${topic.order} is incomplete: ${primary._count.concepts} concepts, ${primary._count.questions} questions, ${primary._count.cases} cases`);
+    }
+    if (primary.questions.some((question) => !question.evidences.length) || primary.cases.some((studyCase) => !studyCase.evidences.length)) {
+      throw new Error(`Topic ${topic.order} has an activity without evidence`);
+    }
+  }
 }

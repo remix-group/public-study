@@ -26,6 +26,7 @@ describe("Legal entities", () => {
     officialUrl: "https://normograma.dian.gov.co/",
     contentHash: null,
     originalFileKey: null,
+    originalFileName: null,
     pipelineStatus: "PUBLISHED",
     effectiveFrom: new Date("1989-03-30"),
     effectiveUntil: null,
@@ -51,6 +52,7 @@ describe("Legal entities", () => {
     effectiveFrom: new Date("1989-03-30"),
     effectiveUntil: null,
     status: "vigente",
+    extractionIssues: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -72,6 +74,7 @@ describe("Legal entities", () => {
     effectiveFrom: new Date("2006-07-29"),
     effectiveUntil: null,
     status: "vigente",
+    extractionIssues: [],
     createdAt: now,
     updatedAt: now,
   };

@@ -1,6 +1,7 @@
-import { prisma } from "@dian-study/infrastructure";
+import { Prisma, prisma } from "@dian-study/infrastructure";
 import { AttemptConflictError, AttemptNotFoundError } from "./submit-question-attempt.js";
 import { ensureTopicProgress } from "./progression.js";
+import { publishableActivityEvidenceWhere } from "./legal-publication.js";
 
 async function requireOwnedSession(sessionId: string, studentId: string) {
   const session = await prisma.studySession.findUnique({ where: { id: sessionId } });
@@ -31,12 +32,35 @@ export async function getNextQuestion(sessionId: string, studentId: string, obje
       editorialStatus: "published",
       ...(objectiveId ? { objectiveId } : {}),
       objective: { topic: { block: { competencyId: session.competencyId } } },
-      evidences: { some: {} },
+      evidences: publishableActivityEvidenceWhere,
     },
     orderBy: [{ objective: { order: "asc" } }, { difficulty: "asc" }, { createdAt: "asc" }],
     include: { objective: true },
   });
   return question ? { question: safeQuestion(question), objective: question.objective } : null;
+}
+
+export async function getNextCase(sessionId: string, studentId: string, objectiveId?: string) {
+  const session = await requireOwnedSession(sessionId, studentId);
+  if (session.finishedAt) throw new AttemptConflictError("Study session is already finished");
+  if (session.mode !== "CASE") throw new AttemptConflictError("Case retrieval requires a case study session");
+  if (objectiveId) {
+    const belongs = await prisma.learningObjective.count({ where: { id: objectiveId, topic: { block: { competencyId: session.competencyId } } } });
+    if (!belongs) throw new AttemptConflictError("Learning objective does not belong to the session competency");
+  }
+  const previous = await prisma.caseAttempt.findMany({ where: { sessionId }, select: { caseId: true } });
+  const studyCase = await prisma.case.findFirst({
+    where: {
+      id: { notIn: previous.map(({ caseId }) => caseId) },
+      editorialStatus: "published",
+      ...(objectiveId ? { objectiveId } : {}),
+      objective: { topic: { block: { competencyId: session.competencyId } } },
+      evidences: publishableActivityEvidenceWhere,
+    },
+    orderBy: [{ objective: { order: "asc" } }, { difficulty: "asc" }, { createdAt: "asc" }],
+    include: { objective: true },
+  });
+  return studyCase ? { case: { id: studyCase.id, objectiveId: studyCase.objectiveId, difficulty: studyCase.difficulty, scenario: studyCase.scenario }, objective: studyCase.objective } : null;
 }
 
 export async function finishStudySession(sessionId: string, studentId: string) {
@@ -45,10 +69,13 @@ export async function finishStudySession(sessionId: string, studentId: string) {
     const session = await tx.studySession.update({
       where: { id: sessionId }, data: { finishedAt: new Date() },
     });
-    const attempts = await tx.questionAttempt.findMany({
+    const [attempts, caseAttempts] = await Promise.all([
+      tx.questionAttempt.findMany({
       where: { sessionId }, orderBy: { createdAt: "asc" },
       include: { question: { include: { objective: true } }, mistakes: true },
-    });
+      }),
+      tx.caseAttempt.findMany({ where: { sessionId }, orderBy: { createdAt: "asc" }, include: { case: { include: { objective: true } } } }),
+    ]);
     return {
       session,
       accuracy: session.totalQuestions ? session.correctAnswers / session.totalQuestions : 0,
@@ -57,6 +84,7 @@ export async function finishStudySession(sessionId: string, studentId: string) {
         question: attempt.question.stem, objective: attempt.question.objective.name,
         mistakes: attempt.mistakes,
       })),
+      caseAttempts: caseAttempts.map((attempt) => ({ id: attempt.id, result: attempt.result, response: attempt.response, scenario: attempt.case.scenario, objective: attempt.case.objective.name })),
     };
   });
 }
@@ -77,7 +105,7 @@ export async function getStudentDashboard(studentId: string) {
     prisma.block.findMany({
       where: { status: "active", competency: { status: "active" } }, orderBy: { order: "asc" },
       include: { competency: { include: { opec: true } }, topics: { where: { status: "active" }, orderBy: { order: "asc" }, include: {
-        learningObjectives: { where: { status: "active" }, orderBy: { order: "asc" }, include: { _count: { select: { questions: { where: { editorialStatus: "published" } } } } } },
+        learningObjectives: { where: { status: "active" }, orderBy: { order: "asc" }, include: { _count: { select: { questions: { where: { editorialStatus: "published", evidences: publishableActivityEvidenceWhere } } } } } },
       } } },
     }),
     prisma.topicProgress.findMany({ where: { studentId } }),
@@ -97,7 +125,7 @@ export async function getStudentDashboard(studentId: string) {
       dimensions: { recall: state?.recall ?? 0, comprehension: state?.comprehension ?? 0, application: state?.application ?? 0, sourceAwareness: state?.sourceAwareness ?? 0, stability: state?.stability ?? 0 },
     };
   });
-  const dueReview = reviews.find((review) => review.scheduledAt <= new Date());
+  const dueReview = reviews.find((review) => review.scheduledAt <= new Date() && objectiveProgress.some((item) => item.objectiveId === review.objectiveId && item.accessible));
   const recommended = dueReview
     ? objectiveProgress.find((item) => item.objectiveId === dueReview.objectiveId)
     : [...objectiveProgress].filter((item) => item.accessible && item.questionCount > 0).sort((a, b) => a.mastery - b.mastery || a.totalAttempts - b.totalAttempts)[0]
@@ -141,7 +169,7 @@ export async function getStudentDashboard(studentId: string) {
   };
 }
 
-export async function getObjectiveStudyGuide(objectiveId: string) {
+export async function getObjectiveStudyGuide(objectiveId: string, studentId?: string) {
   const objective = await prisma.learningObjective.findFirst({
     where: { id: objectiveId, status: "active", topic: { status: "active" } },
     include: {
@@ -151,27 +179,40 @@ export async function getObjectiveStudyGuide(objectiveId: string) {
         include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } },
       },
       questions: {
-        where: { editorialStatus: "published", evidences: { some: {} } },
+        where: { editorialStatus: "published", evidences: publishableActivityEvidenceWhere },
         orderBy: [{ difficulty: "asc" }, { createdAt: "asc" }],
         select: {
           id: true, difficulty: true, explanation: true,
           evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } },
         },
       },
+      cases: {
+        where: { editorialStatus: "published", evidences: publishableActivityEvidenceWhere },
+        orderBy: [{ difficulty: "asc" }, { createdAt: "asc" }],
+        include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } },
+      },
     },
   });
   if (!objective) throw new AttemptNotFoundError("Learning objective not found");
 
   const evidenceById = new Map<string, {
-    id: string; citation: string; content: string; provisionNumber: string; provisionTitle: string;
-    documentTitle: string; officialUrl: string; validationStatus: string; editorialStatus: string;
+    id: string; citation: string; content: string; documentId: string; provisionId: string; provisionNumber: string; provisionTitle: string;
+    documentTitle: string; documentType: string; unitType: string; officialUrl: string;
+    validationStatus: string; editorialStatus: string; status: "reviewed" | "pending";
+    sourceKind: "primary" | "pedagogical";
   }>();
   const addEvidence = (evidence: typeof objective.concepts[number]["evidences"][number]["evidence"]) => {
+    const reviewed = evidence.provision.validationStatus === "approved" && evidence.provision.editorialStatus === "published";
+    const pedagogical = ["study_manual", "learning_route"].includes(evidence.provision.document.documentType)
+      || ["study_guide", "study_topic", "learning_route", "visual_extraction"].includes(evidence.provision.unitType);
     evidenceById.set(evidence.id, {
       id: evidence.id, citation: evidence.citation, content: evidence.content,
+      documentId: evidence.provision.documentId, provisionId: evidence.provisionId,
       provisionNumber: evidence.provision.number, provisionTitle: evidence.provision.title,
-      documentTitle: evidence.provision.document.title, officialUrl: evidence.provision.document.officialUrl,
+      documentTitle: evidence.provision.document.title, documentType: evidence.provision.document.documentType,
+      unitType: evidence.provision.unitType, officialUrl: evidence.provision.document.officialUrl,
       validationStatus: evidence.provision.validationStatus, editorialStatus: evidence.provision.editorialStatus,
+      status: reviewed ? "reviewed" : "pending", sourceKind: pedagogical ? "pedagogical" : "primary",
     });
   };
   for (const concept of objective.concepts) {
@@ -184,15 +225,85 @@ export async function getObjectiveStudyGuide(objectiveId: string) {
       addEvidence(evidence);
     }
   }
+  for (const studyCase of objective.cases) {
+    for (const link of studyCase.evidences) addEvidence(link.evidence);
+  }
   const keyConcepts = [...new Set([
     ...objective.concepts.map((concept) => concept.description.trim()),
     ...objective.questions.map((question) => question.explanation.trim()),
   ].filter(Boolean))].slice(0, 6);
+  const evidences = [...evidenceById.values()];
+  const reviewedEvidenceIds = new Set(evidences.filter((evidence) => evidence.status === "reviewed").map((evidence) => evidence.id));
+  const conceptEvidenceIds = (concept: typeof objective.concepts[number]) => concept.evidences.map(({ evidence }) => evidence.id);
+  const questionEvidenceIds = (question: typeof objective.questions[number]) => question.evidences.map(({ evidence }) => evidence.id).filter((id) => reviewedEvidenceIds.has(id));
+  const centralEvidenceIds = [...new Set(objective.concepts.flatMap(conceptEvidenceIds))];
+  const lesson = [
+    {
+      id: `${objective.id}-central-idea`, kind: "central_idea" as const, title: "Idea central",
+      content: objective.description, sourceEvidenceIds: centralEvidenceIds,
+      status: centralEvidenceIds.some((id) => reviewedEvidenceIds.has(id)) ? "reviewed" as const : "pending" as const,
+    },
+    ...objective.questions.slice(0, 2).map((question, index) => {
+      const sourceEvidenceIds = questionEvidenceIds(question);
+      return {
+        id: `${objective.id}-rule-${index + 1}`, kind: "rule" as const, title: index ? `Regla complementaria ${index + 1}` : "Regla o procedimiento",
+        content: question.explanation, sourceEvidenceIds,
+        status: sourceEvidenceIds.length ? "reviewed" as const : "pending" as const,
+      };
+    }),
+    ...objective.concepts.slice(0, 6).map((concept) => {
+      const sourceEvidenceIds = conceptEvidenceIds(concept);
+      return {
+        id: concept.id, kind: "term" as const, title: concept.name, content: concept.description,
+        sourceEvidenceIds, status: sourceEvidenceIds.some((id) => reviewedEvidenceIds.has(id)) ? "reviewed" as const : "pending" as const,
+      };
+    }),
+    ...evidences.map((evidence) => ({
+      id: `source-${evidence.id}`, kind: "source" as const,
+      title: evidence.sourceKind === "primary" ? "Fuente primaria" : "Material pedagógico",
+      content: evidence.content, sourceEvidenceIds: [evidence.id], status: evidence.status,
+    })),
+  ].filter((item, index, items) => item.content.trim() && items.findIndex((candidate) => candidate.kind === item.kind && candidate.content === item.content) === index);
+  const checks = objective.concepts.slice(0, 2).map((concept, index) => {
+    const sourceEvidenceIds = conceptEvidenceIds(concept);
+    return {
+      id: `${objective.id}-check-${index + 1}`,
+      prompt: `Sin mirar la lectura, explica con tus propias palabras: ${concept.name}.`,
+      expectedAnswer: concept.description,
+      feedback: `Compara tu respuesta con esta idea esencial y vuelve a la fuente si omitiste una condición: ${concept.description}`,
+      sourceEvidenceIds,
+      status: sourceEvidenceIds.some((id) => reviewedEvidenceIds.has(id)) ? "reviewed" as const : "pending" as const,
+    };
+  });
+  const workedCase = objective.cases.find((studyCase) => studyCase.kind === "worked_example" && studyCase.evidences.length > 0) ?? null;
+  const applicationCase = objective.cases.find((studyCase) => studyCase.kind === "application" && studyCase.evidences.length > 0) ?? null;
+  const supportedCase = workedCase ?? applicationCase;
+  const caseEvidenceIds = (studyCase: typeof objective.cases[number] | null) => studyCase
+    ? studyCase.evidences.map(({ evidence }) => evidence.id)
+    : [];
+  const hasReviewedSource = evidences.some((evidence) => evidence.status === "reviewed");
+  const hasStudyMaterial = lesson.length > 1 || evidences.length > 0;
+  const readiness = hasReviewedSource && checks.length > 0 && (objective.questions.length > 0 || supportedCase)
+    ? "READY"
+    : hasReviewedSource && hasStudyMaterial ? "PARTIAL" : "IN_REVIEW";
+  const nextReview = studentId
+    ? await prisma.reviewSchedule.findUnique({ where: { studentId_objectiveId: { studentId, objectiveId } } })
+    : null;
+  const words = lesson.reduce((total, item) => total + item.content.split(/\s+/).filter(Boolean).length, 0);
   return {
     objective: { id: objective.id, name: objective.name, description: objective.description },
     topic: { id: objective.topic.id, name: objective.topic.name },
     block: { id: objective.topic.block.id, name: objective.topic.block.name },
     competency: { id: objective.topic.block.competency.id, name: objective.topic.block.competency.name },
+    readiness,
+    readinessMessage: readiness === "READY"
+      ? "La lectura, sus fuentes y una actividad de práctica o aplicación están disponibles."
+      : readiness === "PARTIAL"
+        ? "Puedes estudiar esta lectura y sus fuentes; algunos ejemplos, casos o actividades aún están en preparación."
+        : "Este tema está incorporado a la ruta, pero su material permanece en revisión editorial y no se presenta como fuente jurídica validada.",
+    estimatedMinutes: Math.min(25, Math.max(5, Math.ceil(words / 180) + 4)),
+    outcome: objective.description,
+    retrievalPrompt: `Antes de leer, explica qué recuerdas sobre: ${objective.name}.`,
     studyProcess: [
       { mode: "RETRIEVAL", title: "Recupera", description: "Intenta explicar la regla antes de volver a leerla." },
       { mode: "LEARN", title: "Comprende", description: "Contrasta tu respuesta con los conceptos y la fuente oficial." },
@@ -201,46 +312,103 @@ export async function getObjectiveStudyGuide(objectiveId: string) {
       { mode: "REVIEW", title: "Mantén", description: "Vuelve a recuperar el conocimiento cuando el sistema lo programe." },
     ],
     keyConcepts,
-    evidences: [...evidenceById.values()],
+    lesson,
+    evidences,
+    workedExample: workedCase ? {
+      id: workedCase.id, situation: workedCase.scenario, analysis: workedCase.expectedAnalysis,
+      sourceEvidenceIds: caseEvidenceIds(workedCase),
+    } : null,
+    checks,
+    practice: { available: objective.questions.length > 0, questionCount: objective.questions.length },
+    applicationCase: applicationCase ? {
+      id: applicationCase.id, scenario: applicationCase.scenario, expectedAnalysis: applicationCase.expectedAnalysis,
+      difficulty: applicationCase.difficulty, sourceEvidenceIds: caseEvidenceIds(applicationCase),
+    } : null,
+    closure: {
+      title: "Recupera antes de cerrar",
+      prompts: ["Explica la idea principal sin mirar.", "Menciona dos condiciones, pasos o excepciones.", "Describe una aplicación posible.", "Identifica la fuente que respalda lo estudiado."],
+    },
+    nextReview: nextReview?.scheduledAt ?? null,
     questionCount: objective.questions.length,
   };
 }
 
-export async function getStudyLibrary(input: { documentId?: string; query?: string; page?: number }) {
+export async function getStudyLibrary(input: {
+  documentId?: string; versionId?: string; query?: string; page?: number;
+  unitId?: string; unitType?: string; validationStatus?: string; status?: string; withIssues?: boolean;
+}) {
   const page = Math.max(1, Math.trunc(input.page ?? 1));
-  const take = 20;
+  const take = 12;
   const documents = await prisma.legalDocument.findMany({
     orderBy: { title: "asc" },
     select: {
       id: true, title: true, authority: true, documentType: true, pipelineStatus: true,
-      contentHash: true, originalFileKey: true, _count: { select: { provisions: true } },
+      source: true, officialUrl: true, contentHash: true, originalFileKey: true, originalFileName: true,
+      effectiveFrom: true, status: true, createdAt: true, updatedAt: true,
+      versions: { orderBy: [{ isCurrent: "desc" }, { createdAt: "desc" }], select: {
+        id: true, label: true, effectiveFrom: true, effectiveUntil: true, status: true,
+        sourceHash: true, isCurrent: true, createdAt: true,
+      } },
+      _count: { select: { provisions: true } },
     },
   });
   const selectedId = documents.some((document) => document.id === input.documentId) ? input.documentId! : documents[0]?.id;
-  if (!selectedId) return { documents: [], selectedDocument: null, units: [], page, totalPages: 0, totalUnits: 0 };
+  if (!selectedId) return { documents: [], selectedDocument: null, units: [], unitTypes: [], selectedVersionId: null, page, pageSize: take, totalDocumentUnits: 0, totalPages: 0, totalUnits: 0 };
+  const selectedDocument = documents.find((document) => document.id === selectedId)!;
+  const selectedVersionId = selectedDocument.versions.some((version) => version.id === input.versionId)
+    ? input.versionId!
+    : selectedDocument.versions.find((version) => version.isCurrent)?.id ?? selectedDocument.versions[0]?.id;
   const query = input.query?.trim();
-  const where = {
+  const where: Prisma.LegalProvisionWhereInput = {
     documentId: selectedId,
+    ...(selectedVersionId ? { versionId: selectedVersionId } : {}),
+    ...(input.unitId ? { id: input.unitId } : {}),
+    ...(input.unitType ? { unitType: input.unitType } : {}),
+    ...(input.validationStatus ? { validationStatus: input.validationStatus } : {}),
+    ...(input.status ? { status: input.status } : {}),
+    ...(input.withIssues ? { NOT: { extractionIssues: { equals: [] } } } : {}),
     ...(query ? { OR: [
       { number: { contains: query, mode: "insensitive" as const } },
       { title: { contains: query, mode: "insensitive" as const } },
+      { content: { contains: query, mode: "insensitive" as const } },
     ] } : {}),
   };
-  const [units, totalUnits] = await Promise.all([
+  const positionWhere: Prisma.LegalProvisionWhereInput = {
+    documentId: selectedId,
+    ...(selectedVersionId ? { versionId: selectedVersionId } : {}),
+  };
+  const [units, totalUnits, orderedUnits, unitTypes] = await Promise.all([
     prisma.legalProvision.findMany({
-      where, orderBy: [{ order: "asc" }, { createdAt: "asc" }], skip: (page - 1) * take, take,
+      where, orderBy: [{ documentPath: "asc" }, { order: "asc" }, { anchor: "asc" }, { id: "asc" }], skip: (page - 1) * take, take,
       select: {
-        id: true, unitType: true, number: true, title: true, content: true, citation: true,
-        validationStatus: true, editorialStatus: true,
+        id: true, versionId: true, parentProvisionId: true, unitType: true, anchor: true, documentPath: true, order: true,
+        number: true, title: true, content: true, citation: true, validationStatus: true,
+        editorialStatus: true, status: true, extractionIssues: true,
+        version: { select: { id: true, label: true, status: true, isCurrent: true } },
+        parent: { select: { id: true, unitType: true, number: true, title: true } },
+        _count: { select: { children: true } },
       },
     }),
     prisma.legalProvision.count({ where }),
+    prisma.legalProvision.findMany({ where: positionWhere, orderBy: [{ documentPath: "asc" }, { order: "asc" }, { anchor: "asc" }, { id: "asc" }], select: { id: true } }),
+    prisma.legalProvision.findMany({ where: positionWhere, distinct: ["unitType"], orderBy: { unitType: "asc" }, select: { unitType: true } }),
   ]);
+  const positionById = new Map(orderedUnits.map(({ id }, index) => [id, index + 1]));
+  const { _count: selectedCount, ...selectedDocumentData } = selectedDocument;
   return {
     documents: documents.map(({ _count, ...document }) => ({ ...document, unitCount: _count.provisions })),
-    selectedDocument: documents.find((document) => document.id === selectedId) ?? null,
-    units,
+    selectedDocument: { ...selectedDocumentData, unitCount: selectedCount.provisions },
+    selectedVersionId: selectedVersionId ?? null,
+    unitTypes: unitTypes.map(({ unitType }) => unitType),
+    units: units.map(({ _count, ...unit }) => ({
+      ...unit,
+      position: positionById.get(unit.id) ?? null,
+      childCount: _count.children,
+      contentLayer: ["study_guide", "study_topic", "visual_extraction"].includes(unit.unitType) ? "derived" : "original",
+    })),
     page,
+    pageSize: take,
+    totalDocumentUnits: orderedUnits.length,
     totalPages: Math.ceil(totalUnits / take),
     totalUnits,
   };

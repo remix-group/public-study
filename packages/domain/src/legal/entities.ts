@@ -37,6 +37,7 @@ export interface LegalDocument extends BaseEntity {
   readonly officialUrl: string;
   readonly contentHash: string | null;
   readonly originalFileKey: string | null;
+  readonly originalFileName: string | null;
   readonly pipelineStatus: DocumentPipelineStatus;
   readonly effectiveFrom: Date;
   readonly effectiveUntil: Date | null;
@@ -73,6 +74,7 @@ export interface LegalProvision extends BaseEntity {
   readonly effectiveFrom: Date;
   readonly effectiveUntil: Date | null;
   readonly status: LegalStatus;
+  readonly extractionIssues: ReadonlyArray<{ code: string; label: string }>;
 }
 
 /**

@@ -70,19 +70,6 @@ learningRouter.get("/dashboard", async (_req, res, next) => {
   }
 });
 
-learningRouter.get("/library", async (req, res, next) => {
-  try {
-    const page = typeof req.query.page === "string" ? Number(req.query.page) : 1;
-    res.json(await getStudyLibrary({
-      documentId: typeof req.query.documentId === "string" ? req.query.documentId : undefined,
-      query: typeof req.query.query === "string" ? req.query.query : undefined,
-      page: Number.isFinite(page) ? page : 1,
-    }));
-  } catch (error) {
-    next(error);
-  }
-});
-
 learningRouter.get("/institutional-map", async (_req, res, next) => {
   try {
     res.json(await getInstitutionalMap());
@@ -91,9 +78,28 @@ learningRouter.get("/institutional-map", async (_req, res, next) => {
   }
 });
 
+learningRouter.get("/library", async (req, res, next) => {
+  try {
+    const page = typeof req.query.page === "string" ? Number(req.query.page) : 1;
+    res.json(await getStudyLibrary({
+      documentId: typeof req.query.documentId === "string" ? req.query.documentId : undefined,
+      versionId: typeof req.query.versionId === "string" ? req.query.versionId : undefined,
+      unitId: typeof req.query.unitId === "string" ? req.query.unitId : undefined,
+      query: typeof req.query.query === "string" ? req.query.query : undefined,
+      unitType: typeof req.query.unitType === "string" ? req.query.unitType : undefined,
+      validationStatus: typeof req.query.validationStatus === "string" ? req.query.validationStatus : undefined,
+      status: typeof req.query.status === "string" ? req.query.status : undefined,
+      withIssues: req.query.withIssues === "true",
+      page: Number.isFinite(page) ? page : 1,
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
 learningRouter.get("/objectives/:objectiveId/guide", async (req, res, next) => {
   try {
-    res.json(await getObjectiveStudyGuide(req.params.objectiveId));
+    res.json(await getObjectiveStudyGuide(req.params.objectiveId, res.locals.studentId));
   } catch (error) {
     if (error instanceof AttemptNotFoundError) return res.status(404).json({ error: error.message });
     next(error);

@@ -31,14 +31,13 @@ knowledgeRouter.post("/documents/:id/transition", async (req, res, next) => {
 knowledgeRouter.post("/documents/:id/ingest", express.raw({ type: "application/pdf", limit: "25mb" }), async (req, res, next) => {
   try {
     if (!Buffer.isBuffer(req.body)) throw new AttemptConflictError("Se esperaba un archivo PDF");
-    res.status(201).json(await ingestLegalPdf(req.params.id, req.body, req.header("x-version-label") ?? undefined));
+    const encodedName = req.header("x-original-file-name");
+    const originalFileName = encodedName ? decodeURIComponent(encodedName) : undefined;
+    res.status(201).json(await ingestLegalPdf(req.params.id, req.body, req.header("x-version-label") ?? undefined, originalFileName));
   } catch (error) { handle(error, res, next); }
 });
 knowledgeRouter.post("/documents/:id/generate", async (req, res, next) => {
-  try {
-    const { sourceVerification } = z.object({ sourceVerification: z.enum(["local_only", "local_then_official_url"]).default("local_then_official_url") }).parse(req.body ?? {});
-    res.status(201).json(await generateDocumentStudyMaterial(req.params.id, getAiProvider(), sourceVerification));
-  }
+  try { res.status(201).json(await generateDocumentStudyMaterial(req.params.id, getAiProvider())); }
   catch (error) { handle(error, res, next); }
 });
 knowledgeRouter.get("/documents/:id/generation-prompt", async (req, res, next) => {
@@ -47,8 +46,8 @@ knowledgeRouter.get("/documents/:id/generation-prompt", async (req, res, next) =
 });
 knowledgeRouter.post("/documents/:id/import-material", async (req, res, next) => {
   try {
-    const { questions, sourceVerification } = importedQuestionsSchema.extend({ sourceVerification: z.enum(["local_only", "local_then_official_url"]).default("local_then_official_url") }).parse(req.body);
-    res.status(201).json(await generateDocumentStudyMaterial(req.params.id, manualImportProvider(questions), sourceVerification));
+    const { questions } = importedQuestionsSchema.parse(req.body);
+    res.status(201).json(await generateDocumentStudyMaterial(req.params.id, manualImportProvider(questions)));
   } catch (error) { handle(error, res, next); }
 });
 knowledgeRouter.post("/versions", async (req, res, next) => {

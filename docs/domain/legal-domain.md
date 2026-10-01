@@ -16,9 +16,6 @@ Fuentes objetivo del MVP:
 - `LegalRelation`: Relación tipificada y direccional entre disposiciones.
 - `LegalVersion`: Versión en el tiempo de un documento o disposición.
 - `Evidence`: Fragmento jurídico extraído que fundamenta una evaluación, pregunta o caso.
-- `InstitutionalEntity`: Entidad, órgano, dependencia o autoridad mencionada por el corpus, con nombre oficial y alias separados.
-- `InstitutionalClaim`: Función, competencia, propósito o descripción institucional sustentada por una disposición.
-- `InstitutionalRelation`: Relación tipificada entre dos entidades institucionales, con evidencia y distinción explícita entre jerárquica y funcional.
 
 ## Relaciones (Tipos de LegalRelation)
 - `MODIFIES`
@@ -46,16 +43,15 @@ pedagógico, las cartillas y las extracciones visuales se conservan como tipos d
 de la misma cadena documental, pero no se presentan como autoridad jurídica hasta superar
 revisión editorial.
 
-## Conocimiento institucional
+## Fidelidad y procedencia documental
 
-El mapa institucional no se construye a partir de menciones aisladas. Cada afirmación y
-relación conserva `sourceProvisionId`, estado editorial y nivel de confianza; puede además
-enlazarse a un `LearningObjective`. Una relación funcional nunca implica jerarquía. Los tipos
-iniciales son `dependency`, `coordination`, `regulation`, `control`, `cooperation`,
-`participation` y `reporting`. Solo `dependency` puede marcarse como jerárquica cuando la
-fuente lo expresa de forma suficiente.
+- `originalFileKey` identifica la ubicación interna del archivo preservado.
+- `originalFileName` conserva el nombre exacto recibido de la fuente y nunca se infiere desde la ruta interna.
+- `LegalProvision.content` es la transcripción fiel e inmutable para su versión.
+- `documentPath` materializa la posición jerárquica para ordenar padres e hijos de forma estable.
+- `extractionIssues` registra incidencias automáticas separadas del texto; informa problemas potenciales sin corregir la transcripción.
 
-El estado `pending_review` indica que el dato fue extraído de una unidad jurídica del corpus
-que aún requiere revisión editorial. `no_confirmado` se reserva para información incompleta y
-no debe presentarse como hecho. La interfaz siempre permite regresar a la disposición y al
-documento que sustentan el dato.
+La biblioteca rotula `content` como **Transcripción original**. Las unidades pedagógicas o
+extracciones estructuradas se identifican como contenido derivado. Una futura corrección
+editorial requerirá una capa e historial separados; nunca reemplazará silenciosamente el
+contenido original.

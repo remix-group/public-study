@@ -1,17 +1,20 @@
 import express from "express";
-import cors from "cors";
 import { sessionRouter } from "./routes/session.js";
 import { learningRouter } from "./routes/learning.js";
 import { authRouter } from "./routes/auth.js";
 import { editorialRouter } from "./routes/editorial.js";
 import { knowledgeRouter } from "./routes/knowledge.js";
+import { securityHeaders } from "./security/request-protection.js";
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.disable("x-powered-by");
+app.use(securityHeaders);
+// The web client is served through the same origin (Vite proxy in development,
+// Nginx in deployment), therefore no permissive CORS policy is required.
+app.use(express.json({ limit: "256kb" }));
 
 // Routes
 app.use("/api/sessions", sessionRouter);
@@ -26,8 +29,8 @@ app.get("/health", (req, res) => {
 });
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("Unhandled Error:", err);
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("Unhandled Error:", err instanceof Error ? err.message : err);
   res.status(500).json({ error: "Internal server error" });
 });
 

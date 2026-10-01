@@ -31,7 +31,7 @@ function storageRoot() {
   return resolve(process.env.LEGAL_STORAGE_PATH ?? join(process.cwd(), "data", "legal-sources"));
 }
 
-export async function ingestLegalPdf(documentId: string, pdf: Buffer, versionLabel?: string) {
+export async function ingestLegalPdf(documentId: string, pdf: Buffer, versionLabel?: string, originalFileName?: string) {
   if (pdf.length < 5 || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") throw new AttemptConflictError("El archivo no tiene una cabecera PDF válida");
   const document = await prisma.legalDocument.findUnique({ where: { id: documentId }, include: { versions: { where: { isCurrent: true }, take: 1 } } });
   if (!document) throw new AttemptNotFoundError("Legal document not found");
@@ -43,7 +43,7 @@ export async function ingestLegalPdf(documentId: string, pdf: Buffer, versionLab
   const textPath = join(documentDirectory, `${hash}.txt`);
   await mkdir(documentDirectory, { recursive: true });
   await writeFile(pdfPath, pdf, { flag: "wx" }).catch((error: NodeJS.ErrnoException) => { if (error.code !== "EEXIST") throw error; });
-  await prisma.legalDocument.update({ where: { id: documentId }, data: { contentHash: hash, originalFileKey: relativeKey, pipelineStatus: "VALIDATED" } });
+  await prisma.legalDocument.update({ where: { id: documentId }, data: { contentHash: hash, originalFileKey: relativeKey, originalFileName: originalFileName?.trim() || null, pipelineStatus: "VALIDATED" } });
 
   try {
     await execFileAsync("pdftotext", ["-layout", "-enc", "UTF-8", pdfPath, textPath]);
