@@ -22,22 +22,22 @@ export type CuratedTopicSeed = {
 export const curatedTopics12To24: CuratedTopicSeed[] = [
   {
     order: 12,
-    sourceDocuments: [/Decreto-2277-de-2012/i],
-    sourceText: [/garant/i, /RUT|saldo a favor/i, /solicitud|devoluci|compens/i],
-    preferredTitles: [/Garant[ií]a a favor/i, /RUT|Registro Único Tributario/i],
-    maxSources: 2,
-    studyText: "Una solicitud de devolución o compensación debe revisarse con sus requisitos generales y especiales, los soportes que expliquen el saldo a favor y las condiciones del solicitante. El Decreto 2277 de 2012 exige, entre otros aspectos, que el RUT esté formalizado y actualizado durante el trámite y regula la garantía cuando se utiliza la opción prevista en el artículo 860 del Estatuto Tributario. La revisión debe distinguir entre una solicitud completa, una que requiere información y una decisión de fondo.",
+    sourceDocuments: [/Decreto-Ley-624-de-1989/i],
+    sourceText: [/DEVOLUCI[ÓO]N DE SALDOS A FAVOR|T[ÉE]RMINO PARA EFECTUAR LA DEVOLUCI[ÓO]N|RECHAZO.*DEVOLUCIONES|DEVOLUCI[ÓO]N CON PRESENTACI[ÓO]N DE GARANT[IÍ]A/i],
+    preferredNumbers: [/^ARTÍCULO 850$/i, /^ARTÍCULO 855$/i, /^ARTÍCULO 857$/i, /^ARTÍCULO 860$/i],
+    maxSources: 4,
+    studyText: "Las devoluciones y compensaciones se estudian hoy desde el Estatuto Tributario compilado y su reglamentación vigente, no desde el Decreto 2277 de 2012 como si continuara siendo la fuente principal. Deben verificarse el origen y oportunidad del saldo a favor, los soportes, el término de la Administración, las causales de rechazo o inadmisión y, cuando se use, la garantía del artículo 860. La revisión distingue requisitos formales, verificación sustancial y decisión de fondo.",
     questions: [
       {
-        stem: "Al revisar una solicitud de devolución o compensación, ¿qué condición del solicitante destaca el Decreto 2277 de 2012?",
+        stem: "Al revisar una solicitud de devolución o compensación, ¿qué debe comprobarse primero?",
         options: [
-          { key: "A", text: "Debe mantener el RUT formalizado y actualizado durante el trámite" },
-          { key: "B", text: "Puede presentar la solicitud sin identificación tributaria" },
-          { key: "C", text: "Solo debe aportar una comunicación verbal" },
-          { key: "D", text: "Debe suspender su actividad económica para solicitarla" },
+          { key: "A", text: "El origen, oportunidad y soporte del saldo a favor solicitado" },
+          { key: "B", text: "Solo la afirmación verbal del solicitante" },
+          { key: "C", text: "Que toda solicitud incluya obligatoriamente una garantía" },
+          { key: "D", text: "Que el solicitante suspenda su actividad económica" },
         ],
         correctAnswer: "A",
-        explanation: "La fuente señala que el titular del saldo a favor debe tener el RUT formalizado y actualizado desde la radicación hasta el acto que defina la solicitud.",
+        explanation: "Los artículos 850 y siguientes exigen establecer la procedencia del saldo y aplicar el trámite, términos y controles correspondientes.",
         errorType: "MISSED_REQUIREMENT",
       },
       {
@@ -49,7 +49,7 @@ export const curatedTopics12To24: CuratedTopicSeed[] = [
           { key: "D", text: "Que reemplace todos los documentos de la solicitud" },
         ],
         correctAnswer: "A",
-        explanation: "El Decreto 2277 remite al artículo 860 del Estatuto Tributario para los requisitos de la garantía en devoluciones.",
+        explanation: "El artículo 860 del Estatuto Tributario regula la devolución con presentación de garantía; esta opción no reemplaza los demás controles aplicables.",
         errorType: "SOURCE_AWARENESS",
       },
     ],
@@ -149,11 +149,11 @@ export const curatedTopics12To24: CuratedTopicSeed[] = [
   },
   {
     order: 15,
-    sourceDocuments: [/Cartilla Insolvencia/i],
-    sourceText: [/finalidad|negociaci[oó]n|acuerdo|conciliaci|acreedor|liquidaci/i],
-    preferredTitles: [/PROCEDIMIENTO DE NEGOCIACI[ÓO]N/i, /Solicitud de negociaci[oó]n/i, /LIQUIDACI[ÓO]N PATRIMONIAL/i],
-    maxSources: 2,
-    studyText: "Los procesos concursales organizan la atención colectiva de las obligaciones cuando el deudor no puede cumplir normalmente. En la insolvencia de la persona natural no comerciante, la negociación de deudas se tramita ante un centro de conciliación o una notaría cuando se cumplen los supuestos; si fracasa, puede abrirse la liquidación patrimonial. La finalidad es ordenar acreencias, proteger la igualdad entre acreedores y buscar una solución o liquidación conforme al procedimiento.",
+    sourceDocuments: [/Ley 1116 de 2006/i, /Ley 2445 de 2025/i],
+    sourceText: [/protecci[oó]n del cr[eé]dito|reorganizaci[oó]n|liquidaci[oó]n|normalizaci[oó]n de sus relaciones crediticias/i],
+    preferredNumbers: [/^Artículo 1$/i, /^Artículo 3/i],
+    maxSources: 3,
+    studyText: "Los procesos concursales atienden colectivamente las obligaciones del deudor y evitan que la solución dependa de cobros aislados. La Ley 1116 de 2006 regula la reorganización y liquidación judicial empresarial; la Ley 2445 de 2025 actualizó la insolvencia de la persona natural e incorporó bajo condiciones a la pequeña comerciante. Según el sujeto y el supuesto pueden operar negociación, convalidación de acuerdos, reorganización o liquidación.",
     questions: [
       {
         stem: "¿Qué finalidad cumple un proceso concursal?",
@@ -191,11 +191,11 @@ export const curatedTopics12To24: CuratedTopicSeed[] = [
   },
   {
     order: 16,
-    sourceDocuments: [/Cartilla Insolvencia/i],
-    sourceText: [/Ley 1116|Ley 1564|reorganiz|liquidaci|rehabilit|efecto/i],
-    preferredTitles: [/LIQUIDACI[ÓO]N PATRIMONIAL/i, /REHABILITACI[ÓO]N FINANCIERA/i, /Para empresa|Para persona natural/i],
-    maxSources: 2,
-    studyText: "El régimen de insolvencia debe distinguir el sujeto y el procedimiento aplicable. Para empresas y comerciantes, la cartilla relaciona la Ley 1116 de 2006 y normas reglamentarias; para la persona natural no comerciante, remite al Código General del Proceso, artículos 531 a 576 de la Ley 1564 de 2012. La reorganización busca conservar la empresa viable mediante un acuerdo, mientras la liquidación patrimonial procura realizar y adjudicar los bienes cuando la negociación no prospera.",
+    sourceDocuments: [/Ley 1116 de 2006/i, /Ley 2445 de 2025/i],
+    sourceText: [/reorganizaci[oó]n|liquidaci[oó]n judicial|persona natural|pequeña comerciante/i],
+    preferredNumbers: [/^Artículo 1$/i, /^Artículo 1$/i, /^Artículo 3/i],
+    maxSources: 3,
+    studyText: "El régimen aplicable depende del sujeto y de la finalidad. La Ley 1116 protege el crédito y busca conservar empresas viables mediante reorganización, o liquidarlas de forma pronta y ordenada cuando corresponde. Para la persona natural, la Ley 2445 de 2025 reformó el Título IV del Código General del Proceso: ya no debe estudiarse únicamente con el texto original de 2012 y ahora incluye, bajo sus condiciones, a la pequeña comerciante.",
     questions: [
       {
         stem: "¿Qué diferencia básica existe entre reorganización y liquidación patrimonial?",
@@ -210,15 +210,15 @@ export const curatedTopics12To24: CuratedTopicSeed[] = [
         errorType: "CONCEPT_CONFUSION",
       },
       {
-        stem: "¿Qué marco se relaciona con la insolvencia de la persona natural no comerciante?",
+        stem: "¿Qué debe tenerse en cuenta al estudiar la insolvencia de la persona natural desde 2025?",
         options: [
-          { key: "A", text: "El Código General del Proceso, artículos 531 a 576 de la Ley 1564 de 2012" },
+          { key: "A", text: "La reforma de la Ley 2445 de 2025 al régimen del Código General del Proceso" },
           { key: "B", text: "Únicamente el régimen de contratación estatal" },
           { key: "C", text: "Solo las reglas internas de una entidad financiera" },
           { key: "D", text: "Un procedimiento sin fundamento legal" },
         ],
         correctAnswer: "A",
-        explanation: "La fuente identifica los artículos 531 a 576 del Código General del Proceso como marco para la persona natural no comerciante.",
+        explanation: "La Ley 2445 de 2025 modificó el régimen de insolvencia de la persona natural y amplió su alcance a determinadas pequeñas comerciantes.",
         errorType: "SOURCE_AWARENESS",
       },
     ],
@@ -317,10 +317,10 @@ export const curatedTopics12To24: CuratedTopicSeed[] = [
   },
   {
     order: 19,
-    sourceDocuments: [/C[oó]digo [ÉE]tica DIAN/i],
+    sourceDocuments: [/C[oó]digo de Integridad DIAN/i],
     sourceText: [/integridad|valor|honestidad|respeto|compromiso|diligencia/i],
-    maxSources: 1,
-    studyText: "El Código de Integridad orienta las decisiones cotidianas de los servidores mediante valores y conductas observables. Para resolver situaciones laborales no basta con identificar una palabra como honestidad o respeto: se debe reconocer el riesgo, actuar de manera transparente, cuidar los recursos públicos, tratar con dignidad y reportar los conflictos o irregularidades por los canales institucionales. El documento fuente permanece pendiente de validación editorial.",
+    maxSources: 2,
+    studyText: "El Código de Integridad orienta las decisiones cotidianas mediante valores y conductas observables. Honestidad exige verdad, transparencia y protección del interés general; respeto exige trato digno, igualdad y apertura al diálogo. En una situación laboral se debe reconocer el riesgo, cuidar los recursos públicos y reportar conflictos o irregularidades por los canales institucionales.",
     questions: [
       {
         stem: "¿Qué conducta refleja mejor la integridad en una actuación laboral?",
@@ -400,10 +400,10 @@ export const curatedTopics12To24: CuratedTopicSeed[] = [
   },
   {
     order: 21,
-    sourceDocuments: [/ley-594-de-2000/i],
+    sourceDocuments: [/2024-02_29_AcuerdoAGN/i, /ley-594-de-2000/i],
     sourceText: [/tabla de ret|transfer|organiz|principio|inventario|archivo/i],
-    preferredNumbers: [/^ARTÍCULO 11$/i, /^ARTÍCULO 21$/i, /^ARTÍCULO 24$/i, /^ARTÍCULO 26$/i],
-    maxSources: 3,
+    preferredNumbers: [/^Artículo 4\.3\.1\.1$/i, /^Artículo 4\.4\.1$/i, /^ARTÍCULO 24$/i, /^ARTÍCULO 26$/i],
+    maxSources: 4,
     studyText: "La gestión documental organiza los documentos desde su producción o recepción hasta su disposición final. La Ley 594 de 2000 exige conformar y administrar archivos públicos, aplicar los principios de procedencia y orden original, elaborar tablas de retención documental e inventariar los documentos. El Acuerdo 001 de 2024 desarrolla instrumentos y reglas archivísticas que deben aplicarse al expediente, la transferencia y la conservación.",
     questions: [
       {
@@ -442,9 +442,9 @@ export const curatedTopics12To24: CuratedTopicSeed[] = [
   },
   {
     order: 22,
-    sourceDocuments: [/Lineamientos pol[ií]tica/i, /Manual del servicio/i, /Protocolo de Servicio/i],
+    sourceDocuments: [/CT-CAC-0054/i],
     sourceText: [/pol[ií]tica|ciudadan|transpar|tr[aá]mite|servicio|acceso/i],
-    preferredTitles: [/Relaci[oó]n Estado-Ciudadano/i, /Anticipar.*necesidad/i, /término.*ley/i],
+    preferredTitles: [/Contacto inicial, sinton[ií]a, desarrollo y finalizaci[oó]n/i, /Atenci[oó]n eficaz, coherente y accesible/i],
     maxSources: 2,
     studyText: "La política estatal de servicio al ciudadano organiza la relación Estado-ciudadanía alrededor de información clara, acceso efectivo, trámites comprensibles, participación y atención respetuosa. Para aplicarla se identifica la necesidad, se ofrece el canal adecuado, se informa el plazo y el resultado esperado, y se mide la experiencia y la oportunidad del servicio. La solución debe ser accesible, coherente y trazable.",
     questions: [
@@ -484,9 +484,9 @@ export const curatedTopics12To24: CuratedTopicSeed[] = [
   },
   {
     order: 23,
-    sourceDocuments: [/ABC Servicio/i, /Manual del servicio/i, /Protocolo de Servicio/i],
+    sourceDocuments: [/CT-CAC-0054/i],
     sourceText: [/empat|escucha|acces|orient|necesidad|atenci|trato|ciudadan/i],
-    preferredTitles: [/Escuchar con inter[eé]s/i, /lenguaje.*respetuoso/i, /escoger el canal/i],
+    preferredTitles: [/Contacto inicial, sinton[ií]a, desarrollo y finalizaci[oó]n/i, /Atenci[oó]n eficaz, coherente y accesible/i],
     maxSources: 2,
     studyText: "La orientación al usuario parte de escuchar y comprender la necesidad antes de responder. La atención debe ser respetuosa, empática, clara y diligente; también debe considerar accesibilidad, lenguaje comprensible, protección de datos y remisión correcta cuando la solicitud corresponda a otra dependencia. Resolver no siempre significa conceder lo pedido: significa explicar la ruta, los requisitos y la autoridad competente.",
     questions: [
@@ -526,9 +526,9 @@ export const curatedTopics12To24: CuratedTopicSeed[] = [
   },
   {
     order: 24,
-    sourceDocuments: [/Manual de estudio/i],
-    sourceText: [/Herramientas|inform[aá]tica|aplicaci|datos|comunic/i],
-    preferredNumbers: [/^Tema 24$/i],
+    sourceDocuments: [/Decreto 088 de 2022/i],
+    sourceText: [/controles de seguridad|confidencialidad|integridad|disponibilidad|privacidad/i],
+    preferredNumbers: [/^Lineamiento digital$/i],
     maxSources: 1,
     studyText: "Las herramientas informáticas deben seleccionarse según la tarea, el tipo de información y los controles requeridos. Para procesar texto se necesita conservar versiones y formato; para gestionar datos se requiere estructura, validación y control de cambios; para presentar información se debe priorizar claridad; y para comunicarse se deben proteger los datos y usar los canales institucionales. La herramienta es un medio: la responsabilidad sobre la información permanece en quien la utiliza.",
     questions: [

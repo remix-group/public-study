@@ -47,6 +47,7 @@ export function App() {
   const [submitting, setSubmitting] = useState(false);
   const [startedAt, setStartedAt] = useState(0);
   const [questionNumber, setQuestionNumber] = useState(1);
+  const [sessionQuestionTarget, setSessionQuestionTarget] = useState(10);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [focusObjectiveId, setFocusObjectiveId] = useState<string | undefined>();
@@ -84,6 +85,10 @@ export function App() {
     setExpandedTopicId(recommendation.topicId);
   }, [dashboard?.recommendedObjective?.objectiveId]);
 
+  const caseAnswerLength = caseAnswer.trim().length;
+  const caseAnswerReady = caseAnswerLength >= 80;
+  const caseAnswerProgress = Math.min(100, Math.round((caseAnswerLength / 80) * 100));
+
   useEffect(() => {
     getCurrentStudent().then(({ student: current }) => {
       setStudent(current); setScreen("welcome"); getDashboard().then(setDashboard).catch(() => undefined);
@@ -102,6 +107,10 @@ export function App() {
     setScreen("loading"); setError("");
     try {
       setFocusObjectiveId(objectiveId);
+      const objectiveQuestionCount = objectiveId
+        ? dashboard?.objectives.find((item) => item.objectiveId === objectiveId)?.questionCount
+        : undefined;
+      setSessionQuestionTarget(Math.max(1, objectiveQuestionCount ?? 10));
       const data = await startSession(mode, objectiveId);
       setSessionData(data);
       const next = await getNextQuestion(data.session.id, objectiveId);
@@ -134,6 +143,12 @@ export function App() {
     if (!sessionData) return;
     setScreen("loading"); setError("");
     try {
+      if (questionNumber >= sessionQuestionTarget) {
+        const result = await finishSession(sessionData.session.id);
+        setSummary(result); setScreen("summary");
+        getDashboard().then(setDashboard).catch(() => undefined);
+        return;
+      }
       const next = await getNextQuestion(sessionData.session.id, focusObjectiveId);
       if (next) {
         setQuestion(next.question); setObjective(next.objective); setSelected(""); setConfidence(0.5);
@@ -186,7 +201,7 @@ export function App() {
 
   function restart() {
     setSessionData(null); setObjective(null); setQuestion(null); setSelected("");
-    setFeedback(null); setCaseExercise(null); setCaseAnswer(""); setCaseFeedback(null); setSummary(null); setConfidence(0.5); setFocusObjectiveId(undefined); setScreen("welcome");
+    setFeedback(null); setCaseExercise(null); setCaseAnswer(""); setCaseFeedback(null); setSummary(null); setConfidence(0.5); setFocusObjectiveId(undefined); setSessionQuestionTarget(10); setScreen("welcome");
   }
 
   return (
@@ -220,15 +235,30 @@ export function App() {
             <div className="sidebar-note"><Icon name="shield"/><span>La respuesta se registra para autoevaluación; no se califica automáticamente una interpretación jurídica abierta.</span></div>
           </aside>
           <section className="study-main">
-            {screen === "case" ? <div className="question-wrap">
+            {screen === "case" ? <div className="question-wrap case-question-wrap">
               <div className="question-meta"><span>Análisis aplicado</span><span className="difficulty">{difficultyLabel(caseExercise.difficulty)}</span></div>
               <h1>Examina la situación y sustenta tu respuesta</h1>
-              <p className="explanation">{caseExercise.scenario}</p>
-              <label className="case-response-label" htmlFor="case-response">Tu análisis jurídico</label>
-              <textarea id="case-response" rows={10} value={caseAnswer} onChange={(event) => setCaseAnswer(event.target.value)} placeholder="Explica los hechos relevantes, la regla aplicable, sus condiciones y la conclusión. Escribe al menos 80 caracteres."/>
-              <small>{caseAnswer.trim().length}/80 caracteres mínimos</small>
+              <section className="case-scenario" aria-labelledby="case-scenario-title">
+                <header><Icon name="target"/><div><small>Situación planteada</small><strong id="case-scenario-title">Identifica el problema antes de responder</strong></div></header>
+                <p>{caseExercise.scenario}</p>
+              </section>
+              <section className={`case-response-card ${caseAnswerReady ? "ready" : ""}`} aria-labelledby="case-response-title">
+                <header className="case-response-heading">
+                  <div><span>Tu respuesta</span><label id="case-response-title" htmlFor="case-response">Análisis jurídico sustentado</label></div>
+                  <strong>{caseAnswerReady ? "Extensión mínima alcanzada" : `${Math.max(0, 80 - caseAnswerLength)} caracteres por completar`}</strong>
+                </header>
+                <p className="case-response-help" id="case-response-help">Construye una respuesta clara y razonada. La estructura sugerida sirve como guía, pero puedes redactar con tus propias palabras.</p>
+                <div className="case-response-guide" aria-label="Estructura sugerida para la respuesta">
+                  <span><b>1</b> Hechos relevantes</span><span><b>2</b> Norma aplicable</span><span><b>3</b> Análisis</span><span><b>4</b> Conclusión</span>
+                </div>
+                <textarea id="case-response" rows={12} value={caseAnswer} onChange={(event) => setCaseAnswer(event.target.value)} aria-describedby="case-response-help case-response-count" placeholder="Ejemplo de inicio: En esta situación, los hechos relevantes son… La norma aplicable establece… Por lo tanto…" spellCheck="true"/>
+                <footer className="case-response-footer">
+                  <div className="case-character-progress" aria-hidden="true"><span style={{ width: `${caseAnswerProgress}%` }}/></div>
+                  <small id="case-response-count"><b>{caseAnswerLength}</b> caracteres · mínimo 80</small>
+                </footer>
+              </section>
               {error && <div className="alert" role="alert">{error}</div>}
-              <button className="button primary wide" disabled={caseAnswer.trim().length < 80 || submitting} onClick={answerCase}>{submitting ? "Registrando…" : "Registrar y contrastar análisis"}</button>
+              <button className="button primary wide case-submit" disabled={!caseAnswerReady || submitting} onClick={answerCase}>{submitting ? "Registrando…" : "Registrar y contrastar análisis"}</button>
             </div> : caseFeedback && <div className="feedback-wrap">
               <div className="result-badge correct">Respuesta registrada</div>
               <h1>Contrasta tu razonamiento.</h1>
@@ -248,8 +278,8 @@ export function App() {
             <button className="text-button" onClick={restart}>← Salir de la sesión</button>
             <div className="session-label">Sesión actual</div>
             <h2>{sessionData?.competency.name}</h2>
-            <div className="progress-copy"><span>Pregunta {questionNumber} de 10</span><span>{questionNumber * 10}%</span></div>
-            <div className="progress-track"><span style={{ width: `${questionNumber * 10}%` }}/></div>
+            <div className="progress-copy"><span>Pregunta {questionNumber} de {sessionQuestionTarget}</span><span>{Math.min(100, Math.round((questionNumber / sessionQuestionTarget) * 100))}%</span></div>
+            <div className="progress-track"><span style={{ width: `${Math.min(100, (questionNumber / sessionQuestionTarget) * 100)}%` }}/></div>
             <div className="objective-card"><span>01</span><div><small>Objetivo de aprendizaje</small><strong>{objective.name}</strong></div></div>
             <div className="sidebar-note"><Icon name="shield"/><span>La evaluación usa evidencia jurídica almacenada y trazable.</span></div>
           </aside>
@@ -257,7 +287,7 @@ export function App() {
           <section className="study-main">
             {screen === "question" ? (
               <div className="question-wrap">
-                <div className="question-meta"><span>Pregunta {questionNumber} de 10</span><span className="difficulty">{difficultyLabel(question.difficulty)}</span></div>
+                <div className="question-meta"><span>Pregunta {questionNumber} de {sessionQuestionTarget}</span><span className="difficulty">{difficultyLabel(question.difficulty)}</span></div>
                 <h1>{question.stem}</h1>
                 <div className="options" role="radiogroup" aria-label="Opciones de respuesta">
                   {question.options?.map((option) => (
@@ -301,7 +331,7 @@ export function App() {
                 ))}
                 <div className="review-card"><Icon name="clock"/><div><small>Próxima revisión sugerida</small><strong>{formatReviewDate(feedback.nextReviewDate)}</strong></div></div>
                 {error && <div className="alert" role="alert">{error}</div>}
-                <button className="button primary wide" onClick={continueSession}>Siguiente pregunta <span aria-hidden="true">→</span></button>
+                <button className="button primary wide" onClick={continueSession}>{questionNumber >= sessionQuestionTarget ? "Finalizar sesión" : "Siguiente pregunta"} <span aria-hidden="true">→</span></button>
               </div>
             )}
           </section>

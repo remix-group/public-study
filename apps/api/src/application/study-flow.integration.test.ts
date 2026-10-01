@@ -59,18 +59,17 @@ integration("study flow AC-001/002/003", () => {
     expect(guide.practice).toEqual({ available: true, questionCount: guide.questionCount });
   });
 
-  it("uses the same honest study-package template for route material still under review", async () => {
+  it("publishes a complete evidence-backed package for the first route topic", async () => {
     const guide = await getObjectiveStudyGuide("objective-route-01");
-    expect(guide.readiness).toBe("IN_REVIEW");
-    expect(guide.evidences).toEqual(expect.arrayContaining([
-      expect.objectContaining({ sourceKind: "pedagogical", status: "pending" }),
-    ]));
+    expect(guide.readiness).toBe("READY");
+    expect(guide.evidences.length).toBeGreaterThanOrEqual(3);
+    expect(guide.evidences.every(({ sourceKind, status, officialUrl }) => sourceKind === "primary" && status === "reviewed" && Boolean(officialUrl))).toBe(true);
     expect(guide.lesson.some(({ kind }) => kind === "central_idea")).toBe(true);
-    expect(guide.lesson.filter(({ kind }) => kind !== "source").every(({ status }) => status === "pending")).toBe(true);
-    expect(guide.checks.length).toBeGreaterThan(0);
-    expect(guide.practice.available).toBe(false);
-    expect(guide.workedExample).toBeNull();
-    expect(guide.applicationCase).toBeNull();
+    expect(guide.lesson.filter(({ kind }) => kind !== "source").every(({ status }) => status === "reviewed")).toBe(true);
+    expect(guide.checks.length).toBe(2);
+    expect(guide.practice).toEqual({ available: true, questionCount: 6 });
+    expect(guide.workedExample).not.toBeNull();
+    expect(guide.applicationCase).not.toBeNull();
   });
 
   it("preserves documentary provenance, literal content and stable library order", async () => {
@@ -168,7 +167,8 @@ integration("study flow AC-001/002/003", () => {
 
   it("records an evidence-backed situational case as guided self-review", async () => {
     const studyCase = await prisma.case.create({ data: {
-      objectiveId: "objective-alcance-art-823", difficulty: 0.7,
+      objectiveId: "objective-alcance-art-823", kind: "application", difficulty: 0.7,
+      editorialStatus: "published", reviewedBy: studentId, reviewedAt: new Date(),
       scenario: "Una obligación exigible no ha sido pagada. Explica cómo debe iniciar la actuación de cobro.",
       expectedAnalysis: "La actuación se inicia por funcionario competente con mandamiento de pago conforme a la norma aplicable.",
     } });

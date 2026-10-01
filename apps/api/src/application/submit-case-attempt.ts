@@ -35,7 +35,7 @@ export async function submitCaseAttempt(input: SubmitCaseAttemptInput) {
         evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } },
       },
     });
-    if (!studyCase) throw new AttemptNotFoundError("Study case not found");
+    if (!studyCase || studyCase.editorialStatus !== "published") throw new AttemptNotFoundError("Published study case not found");
     if (studyCase.objective.topic.block.competencyId !== session.competencyId) throw new AttemptConflictError("Case does not belong to the session competency");
     if (!studyCase.evidences.length || !studyCase.evidences.every(({ evidence }) => isPublishableProvision(evidence.provision))) {
       throw new AttemptConflictError("Case does not have fully reviewed current official legal evidence");

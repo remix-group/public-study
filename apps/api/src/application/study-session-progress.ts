@@ -52,6 +52,7 @@ export async function getNextCase(sessionId: string, studentId: string, objectiv
   const studyCase = await prisma.case.findFirst({
     where: {
       id: { notIn: previous.map(({ caseId }) => caseId) },
+      editorialStatus: "published",
       ...(objectiveId ? { objectiveId } : {}),
       objective: { topic: { block: { competencyId: session.competencyId } } },
       evidences: publishableActivityEvidenceWhere,
@@ -186,7 +187,7 @@ export async function getObjectiveStudyGuide(objectiveId: string, studentId?: st
         },
       },
       cases: {
-        where: { evidences: publishableActivityEvidenceWhere },
+        where: { editorialStatus: "published", evidences: publishableActivityEvidenceWhere },
         orderBy: [{ difficulty: "asc" }, { createdAt: "asc" }],
         include: { evidences: { include: { evidence: { include: { provision: { include: { document: true } } } } } } },
       },
@@ -274,8 +275,8 @@ export async function getObjectiveStudyGuide(objectiveId: string, studentId?: st
       status: sourceEvidenceIds.some((id) => reviewedEvidenceIds.has(id)) ? "reviewed" as const : "pending" as const,
     };
   });
-  const workedCase = objective.cases.find((studyCase) => studyCase.evidences.length > 0) ?? null;
-  const applicationCase = objective.cases.find((studyCase) => studyCase.evidences.length > 0 && studyCase.id !== workedCase?.id) ?? null;
+  const workedCase = objective.cases.find((studyCase) => studyCase.kind === "worked_example" && studyCase.evidences.length > 0) ?? null;
+  const applicationCase = objective.cases.find((studyCase) => studyCase.kind === "application" && studyCase.evidences.length > 0) ?? null;
   const supportedCase = workedCase ?? applicationCase;
   const caseEvidenceIds = (studyCase: typeof objective.cases[number] | null) => studyCase
     ? studyCase.evidences.map(({ evidence }) => evidence.id)
