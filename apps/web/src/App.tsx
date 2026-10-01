@@ -85,6 +85,10 @@ export function App() {
     setExpandedTopicId(recommendation.topicId);
   }, [dashboard?.recommendedObjective?.objectiveId]);
 
+  const caseAnswerLength = caseAnswer.trim().length;
+  const caseAnswerReady = caseAnswerLength >= 80;
+  const caseAnswerProgress = Math.min(100, Math.round((caseAnswerLength / 80) * 100));
+
   useEffect(() => {
     getCurrentStudent().then(({ student: current }) => {
       setStudent(current); setScreen("welcome"); getDashboard().then(setDashboard).catch(() => undefined);
@@ -231,15 +235,30 @@ export function App() {
             <div className="sidebar-note"><Icon name="shield"/><span>La respuesta se registra para autoevaluación; no se califica automáticamente una interpretación jurídica abierta.</span></div>
           </aside>
           <section className="study-main">
-            {screen === "case" ? <div className="question-wrap">
+            {screen === "case" ? <div className="question-wrap case-question-wrap">
               <div className="question-meta"><span>Análisis aplicado</span><span className="difficulty">{difficultyLabel(caseExercise.difficulty)}</span></div>
               <h1>Examina la situación y sustenta tu respuesta</h1>
-              <p className="explanation">{caseExercise.scenario}</p>
-              <label className="case-response-label" htmlFor="case-response">Tu análisis jurídico</label>
-              <textarea id="case-response" rows={10} value={caseAnswer} onChange={(event) => setCaseAnswer(event.target.value)} placeholder="Explica los hechos relevantes, la regla aplicable, sus condiciones y la conclusión. Escribe al menos 80 caracteres."/>
-              <small>{caseAnswer.trim().length}/80 caracteres mínimos</small>
+              <section className="case-scenario" aria-labelledby="case-scenario-title">
+                <header><Icon name="target"/><div><small>Situación planteada</small><strong id="case-scenario-title">Identifica el problema antes de responder</strong></div></header>
+                <p>{caseExercise.scenario}</p>
+              </section>
+              <section className={`case-response-card ${caseAnswerReady ? "ready" : ""}`} aria-labelledby="case-response-title">
+                <header className="case-response-heading">
+                  <div><span>Tu respuesta</span><label id="case-response-title" htmlFor="case-response">Análisis jurídico sustentado</label></div>
+                  <strong>{caseAnswerReady ? "Extensión mínima alcanzada" : `${Math.max(0, 80 - caseAnswerLength)} caracteres por completar`}</strong>
+                </header>
+                <p className="case-response-help" id="case-response-help">Construye una respuesta clara y razonada. La estructura sugerida sirve como guía, pero puedes redactar con tus propias palabras.</p>
+                <div className="case-response-guide" aria-label="Estructura sugerida para la respuesta">
+                  <span><b>1</b> Hechos relevantes</span><span><b>2</b> Norma aplicable</span><span><b>3</b> Análisis</span><span><b>4</b> Conclusión</span>
+                </div>
+                <textarea id="case-response" rows={12} value={caseAnswer} onChange={(event) => setCaseAnswer(event.target.value)} aria-describedby="case-response-help case-response-count" placeholder="Ejemplo de inicio: En esta situación, los hechos relevantes son… La norma aplicable establece… Por lo tanto…" spellCheck="true"/>
+                <footer className="case-response-footer">
+                  <div className="case-character-progress" aria-hidden="true"><span style={{ width: `${caseAnswerProgress}%` }}/></div>
+                  <small id="case-response-count"><b>{caseAnswerLength}</b> caracteres · mínimo 80</small>
+                </footer>
+              </section>
               {error && <div className="alert" role="alert">{error}</div>}
-              <button className="button primary wide" disabled={caseAnswer.trim().length < 80 || submitting} onClick={answerCase}>{submitting ? "Registrando…" : "Registrar y contrastar análisis"}</button>
+              <button className="button primary wide case-submit" disabled={!caseAnswerReady || submitting} onClick={answerCase}>{submitting ? "Registrando…" : "Registrar y contrastar análisis"}</button>
             </div> : caseFeedback && <div className="feedback-wrap">
               <div className="result-badge correct">Respuesta registrada</div>
               <h1>Contrasta tu razonamiento.</h1>
